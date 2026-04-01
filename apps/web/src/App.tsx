@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
+type Route = "home" | "explore" | "advertiser" | "admin";
+
 type Product = {
   id: string;
   name: string;
@@ -8,6 +10,7 @@ type Product = {
   dailyRate: number;
   deposit: number;
   description: string;
+  owner?: string;
 };
 
 type Overview = {
@@ -41,6 +44,7 @@ type HostDashboard = {
     verifiedListings: number;
   };
   actions: string[];
+  listings: Product[];
 };
 
 type AdminDashboard = {
@@ -54,8 +58,16 @@ type AdminDashboard = {
 };
 
 const apiBaseUrl = "http://localhost:4000";
+const advertiserCategories = [
+  "Furniture",
+  "Appliances",
+  "Fashion",
+  "Ceremony",
+  "Electronics"
+];
 
 export default function App() {
+  const [route, setRoute] = useState<Route>(getRouteFromHash());
   const [overview, setOverview] = useState<Overview | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [advertiserUser, setAdvertiserUser] = useState<User | null>(null);
@@ -68,10 +80,20 @@ export default function App() {
   );
   const [hostDashboard, setHostDashboard] = useState<HostDashboard | null>(null);
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null);
-  const [statusMessage, setStatusMessage] = useState("Ready.");
+  const [statusMessage, setStatusMessage] = useState("Choose how you want to enter Rento.");
+  const [rentingProductId, setRentingProductId] = useState<string | null>(null);
 
   useEffect(() => {
     void loadMarketplace();
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setRoute(getRouteFromHash());
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
   useEffect(() => {
@@ -182,7 +204,6 @@ export default function App() {
   async function registerAdvertiser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-
     const payload = {
       name: String(form.get("name") ?? ""),
       email: String(form.get("email") ?? ""),
@@ -206,10 +227,7 @@ export default function App() {
     }
   }
 
-  async function login(
-    event: FormEvent<HTMLFormElement>,
-    role: User["role"]
-  ) {
+  async function login(event: FormEvent<HTMLFormElement>, role: User["role"]) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const payload = {
@@ -248,6 +266,43 @@ export default function App() {
     }
   }
 
+  async function submitProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!advertiserToken) {
+      setStatusMessage("Please login as an approved advertiser first.");
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      name: String(form.get("name") ?? ""),
+      category: String(form.get("category") ?? ""),
+      city: String(form.get("city") ?? ""),
+      dailyRate: Number(form.get("dailyRate") ?? 0),
+      deposit: Number(form.get("deposit") ?? 0),
+      description: String(form.get("description") ?? ""),
+      tags: String(form.get("tags") ?? "")
+    };
+
+    const response = await fetch(`${apiBaseUrl}/api/advertiser/products`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${advertiserToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = (await response.json()) as { message?: string };
+    setStatusMessage(data.message ?? "Product submitted.");
+
+    if (response.ok) {
+      event.currentTarget.reset();
+      await Promise.all([loadMarketplace(), loadHostDashboard(advertiserToken)]);
+    }
+  }
+
   async function updateAdvertiserAccess(
     userId: string,
     accessStatus: User["accessStatus"]
@@ -273,67 +328,234 @@ export default function App() {
     }
   }
 
+  function navigate(nextRoute: Route) {
+    window.location.hash = nextRoute === "home" ? "" : nextRoute;
+  }
+
+  function rentProduct(product: Product) {
+    setRentingProductId(product.id);
+    setStatusMessage(
+      `Rental request started for "${product.name}". We can turn this into a checkout flow next.`
+    );
+  }
+
   return (
-    <div className="page-shell">
-      <header className="hero">
+    <div className="app-shell">
+      <TopBar route={route} navigate={navigate} />
+      {route === "home" && (
+        <HomePage overview={overview} navigate={navigate} statusMessage={statusMessage} />
+      )}
+      {route === "explore" && (
+        <ExplorePage
+          products={products}
+          overview={overview}
+          navigate={navigate}
+          onRent={rentProduct}
+          rentingProductId={rentingProductId}
+        />
+      )}
+      {route === "advertiser" && (
+        <AdvertiserPage
+          advertiserUser={advertiserUser}
+          hostDashboard={hostDashboard}
+          statusMessage={statusMessage}
+          onRegister={registerAdvertiser}
+          onLogin={login}
+          onLogout={() => setAdvertiserToken(null)}
+          onSubmitProduct={submitProduct}
+        />
+      )}
+      {route === "admin" && (
+        <AdminPage
+          adminUser={adminUser}
+          adminDashboard={adminDashboard}
+          statusMessage={statusMessage}
+          onLogin={login}
+          onLogout={() => setAdminToken(null)}
+          onUpdateAccess={updateAdvertiserAccess}
+        />
+      )}
+    </div>
+  );
+}
+
+function TopBar({
+  route,
+  navigate
+}: {
+  route: Route;
+  navigate: (route: Route) => void;
+}) {
+  return (
+    <header className="topbar">
+      <button type="button" className="brand-link" onClick={() => navigate("home")}>
+        Rento
+      </button>
+      <nav className="topbar-nav">
+        {route !== "home" && (
+          <button type="button" className="ghost-button" onClick={() => navigate("home")}>
+            Main Page
+          </button>
+        )}
+        {route !== "explore" && (
+          <button type="button" className="ghost-button" onClick={() => navigate("explore")}>
+            Explore Rento
+          </button>
+        )}
+        {route !== "advertiser" && (
+          <button type="button" className="ghost-button" onClick={() => navigate("advertiser")}>
+            Are you an Advertiser?
+          </button>
+        )}
+        <button type="button" className="mini-admin-button" onClick={() => navigate("admin")}>
+          Are you Admin
+        </button>
+      </nav>
+    </header>
+  );
+}
+
+function HomePage({
+  overview,
+  navigate,
+  statusMessage
+}: {
+  overview: Overview | null;
+  navigate: (route: Route) => void;
+  statusMessage: string;
+}) {
+  return (
+    <main className="page-shell home-page">
+      <section className="hero hero-home">
         <div className="hero-copy">
-          <p className="eyebrow">Rento</p>
-          <h1>Rental access with admin-controlled advertiser onboarding.</h1>
+          <p className="eyebrow">Main Page</p>
+          <h1>Choose your Rento journey in one click.</h1>
           <p className="hero-text">
-            Consumers browse products, advertisers request access with a login ID
-            and password, and admin approves who can operate on the platform.
+            People can either explore listed products, become advertisers, or enter
+            the admin control room. Each path now has its own dedicated page.
           </p>
+          <div className="main-actions">
+            <button type="button" className="primary-button" onClick={() => navigate("advertiser")}>
+              Are you an Advertiser?
+            </button>
+            <button type="button" className="secondary-button" onClick={() => navigate("explore")}>
+              Explore Rento
+            </button>
+          </div>
+          <p className="status-banner">{statusMessage}</p>
+        </div>
+        <div className="hero-panel">
+          <p className="panel-title">Live platform snapshot</p>
           <div className="stat-strip">
             <div>
               <strong>{overview?.stats.listedProducts ?? "-"}</strong>
-              <span>Listings</span>
+              <span>Advertisements</span>
             </div>
             <div>
               <strong>{overview?.stats.activeHosts ?? "-"}</strong>
-              <span>Hosts</span>
+              <span>Advertisers</span>
             </div>
             <div>
-              <strong>{overview?.stats.pendingAdvertisers ?? "-"}</strong>
-              <span>Pending Access</span>
+              <strong>{overview?.stats.cities ?? "-"}</strong>
+              <span>Cities</span>
             </div>
           </div>
         </div>
-        <div className="hero-panel">
-          <p className="panel-title">Current setup</p>
-          <ul>
-            <li>Advertisers sign up with login ID and password</li>
-            <li>Admin decides who gets approved access</li>
-            <li>PostgreSQL stores users, sessions, and products</li>
-          </ul>
-          <p className="status-banner">{statusMessage}</p>
-        </div>
-      </header>
+      </section>
+    </main>
+  );
+}
 
-      <section className="section-grid" id="consumer">
-        <div className="section-heading">
-          <p className="eyebrow">Consumer Marketplace</p>
-          <h2>Discover rental inventory already stored in PostgreSQL.</h2>
-          <p>{overview?.positioning ?? "Loading marketplace overview..."}</p>
+function ExplorePage({
+  products,
+  overview,
+  navigate,
+  onRent,
+  rentingProductId
+}: {
+  products: Product[];
+  overview: Overview | null;
+  navigate: (route: Route) => void;
+  onRent: (product: Product) => void;
+  rentingProductId: string | null;
+}) {
+  return (
+    <main className="page-shell">
+      <section className="section-header">
+        <div>
+          <p className="eyebrow">Customer Landing Page</p>
+          <h2>Explore all posted advertisements and rent what you need.</h2>
+          <p className="section-text">
+            {overview?.positioning ??
+              "Browse products from approved advertisers and start renting immediately."}
+          </p>
         </div>
-        <div className="cards">
-          {products.map((item) => (
-            <article key={item.id} className="card">
-              <h3>{item.name}</h3>
-              <p className="price">Rs {item.dailyRate}/day</p>
-              <p>{item.description}</p>
-              <p className="meta-line">
-                {item.city} · {item.category} · Deposit Rs {item.deposit}
-              </p>
-            </article>
-          ))}
+        <button type="button" className="secondary-button" onClick={() => navigate("advertiser")}>
+          Want to post instead?
+        </button>
+      </section>
+      <section className="cards cards-wide">
+        {products.map((product) => (
+          <article key={product.id} className="card product-card">
+            <p className="eyebrow">{product.category}</p>
+            <h3>{product.name}</h3>
+            <p>{product.description}</p>
+            <p className="meta-line">
+              {product.city} | Deposit Rs {product.deposit}
+            </p>
+            <div className="card-footer">
+              <p className="price">Rs {product.dailyRate}/day</p>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => onRent(product)}
+              >
+                {rentingProductId === product.id ? "Rental Requested" : "Rent this item"}
+              </button>
+            </div>
+          </article>
+        ))}
+      </section>
+    </main>
+  );
+}
+
+function AdvertiserPage({
+  advertiserUser,
+  hostDashboard,
+  statusMessage,
+  onRegister,
+  onLogin,
+  onLogout,
+  onSubmitProduct
+}: {
+  advertiserUser: User | null;
+  hostDashboard: HostDashboard | null;
+  statusMessage: string;
+  onRegister: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onLogin: (event: FormEvent<HTMLFormElement>, role: User["role"]) => Promise<void>;
+  onLogout: () => void;
+  onSubmitProduct: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+}) {
+  return (
+    <main className="page-shell">
+      <section className="section-header">
+        <div>
+          <p className="eyebrow">Advertiser Page</p>
+          <h2>Register, login, and publish advertisements after approval.</h2>
+          <p className="section-text">
+            Advertisers can create an account first. Once admin approves access, they
+            can open their dashboard and post products.
+          </p>
         </div>
+        <p className="status-banner compact">{statusMessage}</p>
       </section>
 
       <section className="auth-layout">
         <article className="auth-card">
-          <p className="eyebrow">Advertiser Access</p>
-          <h2>Create advertiser login</h2>
-          <form className="stack-form" onSubmit={registerAdvertiser}>
+          <p className="eyebrow">Step 1</p>
+          <h3>Create advertiser account</h3>
+          <form className="stack-form" onSubmit={(event) => void onRegister(event)}>
             <input name="name" type="text" placeholder="Full name" required />
             <input name="email" type="email" placeholder="Login email" required />
             <input
@@ -344,73 +566,155 @@ export default function App() {
               required
             />
             <button type="submit" className="primary-button">
-              Request advertiser access
+              Register as advertiser
             </button>
           </form>
+        </article>
 
+        <article className="auth-card">
+          <p className="eyebrow">Step 2</p>
           <h3>Advertiser login</h3>
-          <form className="stack-form" onSubmit={(event) => void login(event, "ADVERTISER")}>
+          <form className="stack-form" onSubmit={(event) => void onLogin(event, "ADVERTISER")}>
             <input name="email" type="email" placeholder="Advertiser email" required />
             <input name="password" type="password" placeholder="Password" required />
             <button type="submit" className="secondary-button">
-              Login as advertiser
+              Login to advertiser panel
             </button>
           </form>
+          <p className="meta-line">
+            Only approved advertisers can enter the dashboard and post products.
+          </p>
+        </article>
+      </section>
 
-          <div className="session-box">
-            <p className="panel-title">Advertiser status</p>
-            {advertiserUser ? (
-              <>
-                <p>{advertiserUser.name}</p>
-                <p className="meta-line">
-                  {advertiserUser.email} · {advertiserUser.accessStatus}
-                </p>
-                {hostDashboard ? (
-                  <div className="mini-grid">
-                    <div>Listings: {hostDashboard.summary.totalListings}</div>
+      <section className="dashboard-grid">
+        <article className="dashboard-card">
+          <p className="eyebrow">Advertiser Dashboard</p>
+          {advertiserUser ? (
+            <>
+              <h3>{advertiserUser.name}</h3>
+              <p className="meta-line">
+                {advertiserUser.email} | {advertiserUser.accessStatus}
+              </p>
+              {hostDashboard ? (
+                <>
+                  <div className="mini-grid four-up">
+                    <div>Total listings: {hostDashboard.summary.totalListings}</div>
                     <div>Revenue: Rs {hostDashboard.summary.monthlyRevenue}</div>
                     <div>Utilization: {hostDashboard.summary.utilizationRate}%</div>
                     <div>Verified: {hostDashboard.summary.verifiedListings}</div>
                   </div>
-                ) : (
-                  <p className="meta-line">Waiting for dashboard data.</p>
-                )}
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setAdvertiserToken(null)}
-                >
-                  Logout advertiser
-                </button>
-              </>
-            ) : (
-              <p className="meta-line">
-                Approved advertisers will see their dashboard after login.
-              </p>
-            )}
-          </div>
+                  <ul className="list-block">
+                    {hostDashboard.actions.map((action) => (
+                      <li key={action}>{action}</li>
+                    ))}
+                  </ul>
+                  <div className="listing-stack">
+                    {hostDashboard.listings.map((listing) => (
+                      <div key={listing.id} className="listing-item">
+                        <strong>{listing.name}</strong>
+                        <span>
+                          {listing.city} | Rs {listing.dailyRate}/day
+                        </span>
+                      </div>
+                    ))}
+                    {hostDashboard.listings.length === 0 && (
+                      <p className="meta-line">No products posted yet.</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="meta-line">Waiting for dashboard data.</p>
+              )}
+              <button type="button" className="secondary-button" onClick={onLogout}>
+                Logout advertiser
+              </button>
+            </>
+          ) : (
+            <p className="meta-line">
+              Login with an approved advertiser account to open the dashboard.
+            </p>
+          )}
         </article>
 
-        <article className="auth-card admin-card">
-          <p className="eyebrow">Admin Control</p>
-          <h2>Monitor registrations and allow access.</h2>
-          <p className="meta-line">
-            Default admin login: <strong>admin@rento.local</strong> /{" "}
-            <strong>Admin@12345</strong>
-          </p>
+        <article className="dashboard-card">
+          <p className="eyebrow">Post Advertisement</p>
+          <h3>Publish a product listing</h3>
+          <form className="stack-form" onSubmit={(event) => void onSubmitProduct(event)}>
+            <input name="name" type="text" placeholder="Product name" required />
+            <select name="category" defaultValue="Furniture" required>
+              {advertiserCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+            <input name="city" type="text" placeholder="City" required />
+            <input name="dailyRate" type="number" placeholder="Daily rent" min="1" required />
+            <input name="deposit" type="number" placeholder="Deposit amount" min="0" required />
+            <textarea name="description" placeholder="Describe the advertisement" required />
+            <input name="tags" type="text" placeholder="Tags separated by commas" />
+            <button type="submit" className="primary-button">
+              Post product advertisement
+            </button>
+          </form>
+        </article>
+      </section>
+    </main>
+  );
+}
 
-          <form className="stack-form" onSubmit={(event) => void login(event, "ADMIN")}>
+function AdminPage({
+  adminUser,
+  adminDashboard,
+  statusMessage,
+  onLogin,
+  onLogout,
+  onUpdateAccess
+}: {
+  adminUser: User | null;
+  adminDashboard: AdminDashboard | null;
+  statusMessage: string;
+  onLogin: (event: FormEvent<HTMLFormElement>, role: User["role"]) => Promise<void>;
+  onLogout: () => void;
+  onUpdateAccess: (userId: string, accessStatus: User["accessStatus"]) => Promise<void>;
+}) {
+  return (
+    <main className="page-shell">
+      <section className="section-header">
+        <div>
+          <p className="eyebrow">Admin Control Page</p>
+          <h2>Monitor registrations and allow access.</h2>
+          <p className="section-text">
+            This page keeps the approval workflow separate from the customer and
+            advertiser journeys.
+          </p>
+        </div>
+        <p className="status-banner compact">{statusMessage}</p>
+      </section>
+
+      <section className="admin-layout">
+        <article className="auth-card">
+          <p className="eyebrow">Admin Login</p>
+          <h3>Enter the control room</h3>
+          <p className="meta-line">
+            Default admin: <strong>admin@rento.local</strong> / <strong>Admin@12345</strong>
+          </p>
+          <form className="stack-form" onSubmit={(event) => void onLogin(event, "ADMIN")}>
             <input name="email" type="email" placeholder="Admin email" required />
             <input name="password" type="password" placeholder="Admin password" required />
             <button type="submit" className="primary-button">
               Login as admin
             </button>
           </form>
+        </article>
 
+        <article className="dashboard-card wide-card">
+          <p className="eyebrow">Registration Dashboard</p>
           {adminUser && adminDashboard ? (
-            <div className="session-box">
-              <div className="mini-grid">
-                <div>Total: {adminDashboard.summary.totalAdvertisers}</div>
+            <>
+              <div className="mini-grid four-up">
+                <div>Total advertisers: {adminDashboard.summary.totalAdvertisers}</div>
                 <div>Approved: {adminDashboard.summary.approved}</div>
                 <div>Pending: {adminDashboard.summary.pending}</div>
                 <div>Suspended: {adminDashboard.summary.suspended}</div>
@@ -436,21 +740,21 @@ export default function App() {
                           <button
                             type="button"
                             className="tiny-button"
-                            onClick={() => void updateAdvertiserAccess(user.id, "APPROVED")}
+                            onClick={() => void onUpdateAccess(user.id, "APPROVED")}
                           >
-                            Approve
+                            Accept
                           </button>
                           <button
                             type="button"
                             className="tiny-button muted"
-                            onClick={() => void updateAdvertiserAccess(user.id, "PENDING")}
+                            onClick={() => void onUpdateAccess(user.id, "PENDING")}
                           >
                             Hold
                           </button>
                           <button
                             type="button"
                             className="tiny-button warning"
-                            onClick={() => void updateAdvertiserAccess(user.id, "SUSPENDED")}
+                            onClick={() => void onUpdateAccess(user.id, "SUSPENDED")}
                           >
                             Suspend
                           </button>
@@ -460,24 +764,26 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
-
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setAdminToken(null)}
-              >
+              <button type="button" className="secondary-button" onClick={onLogout}>
                 Logout admin
               </button>
-            </div>
+            </>
           ) : (
-            <div className="session-box">
-              <p className="meta-line">
-                Admin can review advertiser requests and update access status here.
-              </p>
-            </div>
+            <p className="meta-line">
+              Login to review advertiser registrations and change their access.
+            </p>
           )}
         </article>
       </section>
-    </div>
+    </main>
   );
+}
+
+function getRouteFromHash(): Route {
+  const value = window.location.hash.replace("#", "");
+  if (value === "explore" || value === "advertiser" || value === "admin") {
+    return value;
+  }
+
+  return "home";
 }

@@ -195,17 +195,22 @@ app.get(
 app.get(
   "/api/host-dashboard",
   requireAuth("ADVERTISER"),
-  async (_req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
+      const owner = req.user?.name ?? "";
       const [totalListings, verifiedListings, revenue] = await Promise.all([
-        prisma.product.count(),
-        prisma.product.count({ where: { condition: "Verified" } }),
-        prisma.product.aggregate({ _sum: { dailyRate: true } })
+        prisma.product.count({ where: { owner } }),
+        prisma.product.count({ where: { owner, condition: "Verified" } }),
+        prisma.product.aggregate({ where: { owner }, _sum: { dailyRate: true } })
       ]);
 
       const activeRentals = Math.max(1, Math.round(totalListings * 0.5));
       const utilizationRate =
         totalListings === 0 ? 0 : Math.round((activeRentals / totalListings) * 100);
+      const listings = await prisma.product.findMany({
+        where: { owner },
+        orderBy: { name: "asc" }
+      });
 
       res.json({
         summary: {
@@ -220,11 +225,73 @@ app.get(
           "Set seasonal pricing",
           "Block unavailable dates",
           "Review pending bookings"
-        ]
+        ],
+        listings
       });
     } catch (error) {
       console.error("Failed to fetch host dashboard:", error);
       res.status(500).json({ message: "Unable to load host dashboard." });
+    }
+  }
+);
+
+app.post(
+  "/api/advertiser/products",
+  requireAuth("ADVERTISER"),
+  async (req: AuthenticatedRequest, res) => {
+    const { name, category, city, dailyRate, deposit, description, tags } = req.body as {
+      name?: string;
+      category?: string;
+      city?: string;
+      dailyRate?: number | string;
+      deposit?: number | string;
+      description?: string;
+      tags?: string[] | string;
+    };
+
+    if (!name || !category || !city || dailyRate == null || deposit == null || !description) {
+      res.status(400).json({ message: "All product fields are required." });
+      return;
+    }
+
+    const dailyRateValue = Number(dailyRate);
+    const depositValue = Number(deposit);
+
+    if (!Number.isFinite(dailyRateValue) || !Number.isFinite(depositValue)) {
+      res.status(400).json({ message: "Daily rate and deposit must be valid numbers." });
+      return;
+    }
+
+    try {
+      const normalizedTags = Array.isArray(tags)
+        ? tags
+        : String(tags ?? "")
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+
+      const product = await prisma.product.create({
+        data: {
+          id: `prd-${crypto.randomUUID().slice(0, 8)}`,
+          name,
+          category: normalizeCategory(category),
+          city,
+          dailyRate: dailyRateValue,
+          deposit: depositValue,
+          owner: req.user?.name ?? "Advertiser",
+          condition: "Good",
+          description,
+          tags: normalizedTags
+        }
+      });
+
+      res.status(201).json({
+        message: "Product posted successfully.",
+        product
+      });
+    } catch (error) {
+      console.error("Failed to create product:", error);
+      res.status(500).json({ message: "Unable to post product." });
     }
   }
 );
@@ -316,6 +383,20 @@ function countByStatus(
   status: AccessStatus
 ) {
   return Number(totals.find((item) => item.accessStatus === status)?.count ?? 0);
+}
+
+function normalizeCategory(category: string) {
+  const allowedCategories = [
+    "Furniture",
+    "Appliances",
+    "Fashion",
+    "Ceremony",
+    "Electronics"
+  ] as const;
+
+  return allowedCategories.includes(category as (typeof allowedCategories)[number])
+    ? (category as (typeof allowedCategories)[number])
+    : "Furniture";
 }
 
 function requireAuth(role?: UserRole) {
