@@ -1,0 +1,19 @@
+{
+  "name": "rento",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace web",
+    "dev:api": "npm run dev --workspace api",
+    "build": "npm run build --workspace web && npm run build --workspace api",
+    "db:generate": "npm run db:generate --workspace api",
+    "db:push": "npm run db:push --workspace api",
+    "db:seed": "npm run db:seed --workspace api"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3"
+  }
+}

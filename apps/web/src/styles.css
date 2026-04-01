@@ -1,0 +1,295 @@
+:root {
+  font-family: Georgia, "Times New Roman", serif;
+  color: #1f1d1a;
+  background:
+    radial-gradient(circle at top left, rgba(242, 188, 120, 0.3), transparent 30%),
+    linear-gradient(180deg, #f8f2ea 0%, #efe3d4 100%);
+  line-height: 1.5;
+  font-weight: 400;
+  --ink: #1f1d1a;
+  --muted: #65594d;
+  --accent: #a54a2a;
+  --accent-soft: #f2d6c6;
+  --surface: rgba(255, 250, 244, 0.82);
+  --border: rgba(57, 39, 24, 0.12);
+  --surface-strong: rgba(255, 246, 236, 0.95);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  color: var(--ink);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.page-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+  padding: 36px;
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+}
+
+.hero-copy h1,
+.section-heading h2,
+.split-panel h2 {
+  font-size: clamp(2.4rem, 5vw, 4.8rem);
+  line-height: 0.95;
+  margin: 0 0 16px;
+  letter-spacing: -0.04em;
+}
+
+.hero-text,
+.section-heading p,
+.split-panel p,
+.card p,
+.roadmap-card p {
+  color: var(--muted);
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.78rem;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.primary-button,
+.secondary-button {
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 700;
+}
+
+.primary-button {
+  background: var(--accent);
+  color: #fff7f2;
+}
+
+.secondary-button {
+  background: transparent;
+}
+
+.hero-panel,
+.card,
+.roadmap-card,
+.benefit-item,
+.auth-card,
+.session-box {
+  border: 1px solid var(--border);
+  background: rgba(255, 248, 241, 0.7);
+  border-radius: 20px;
+}
+
+.hero-panel {
+  padding: 24px;
+}
+
+.panel-title {
+  font-weight: 700;
+  margin-top: 0;
+}
+
+.hero-panel ul {
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.section-grid,
+.roadmap,
+.auth-layout {
+  margin-top: 28px;
+  padding: 24px 0;
+}
+
+.cards,
+.roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card,
+.roadmap-card {
+  padding: 20px;
+}
+
+.price {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.split-panel {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  margin-top: 12px;
+  padding: 30px;
+  border-radius: 28px;
+  background: rgba(110, 71, 43, 0.08);
+  border: 1px solid var(--border);
+}
+
+.benefit-list {
+  display: grid;
+  gap: 14px;
+}
+
+.benefit-item {
+  padding: 18px;
+  font-weight: 600;
+}
+
+.stat-strip,
+.mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.stat-strip div,
+.mini-grid div {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--border);
+}
+
+.stat-strip strong {
+  display: block;
+  font-size: 1.6rem;
+}
+
+.stat-strip span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.status-banner {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.auth-card {
+  padding: 24px;
+  background: var(--surface-strong);
+}
+
+.stack-form {
+  display: grid;
+  gap: 12px;
+  margin-block: 18px 24px;
+}
+
+.stack-form input {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: white;
+  font: inherit;
+}
+
+.session-box {
+  padding: 18px;
+}
+
+.meta-line {
+  color: var(--muted);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 18px 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tiny-button {
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tiny-button.muted {
+  background: #f2ede6;
+}
+
+.tiny-button.warning {
+  background: #f6d2c8;
+}
+
+@media (max-width: 860px) {
+  .hero,
+  .split-panel,
+  .cards,
+  .roadmap-grid,
+  .auth-layout,
+  .stat-strip,
+  .mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-shell {
+    padding-inline: 14px;
+  }
+
+  .hero {
+    padding: 24px;
+  }
+}

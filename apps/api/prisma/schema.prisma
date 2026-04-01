@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Category {
+  Furniture
+  Appliances
+  Fashion
+  Ceremony
+  Electronics
+}
+
+enum ProductCondition {
+  Excellent
+  Good
+  Verified
+}
+
+enum UserRole {
+  ADMIN
+  ADVERTISER
+}
+
+enum AccessStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+model Product {
+  id          String           @id
+  name        String
+  category    Category
+  city        String
+  dailyRate   Int
+  deposit     Int
+  owner       String
+  condition   ProductCondition
+  description String
+  tags        String[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([city])
+  @@index([category])
+  @@map("products")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  name         String
+  email        String         @unique
+  passwordHash String?
+  role         UserRole
+  accessStatus AccessStatus   @default(PENDING)
+  provider     AuthProvider   @default(LOCAL)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sessions     Session[]
+
+  @@index([role, accessStatus])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
