@@ -416,7 +416,7 @@ async function createUser(input: {
       INSERT INTO public.users (
         id, name, email, "passwordHash", role, "accessStatus", provider, "createdAt", "updatedAt"
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5::"UserRole", $6::"AccessStatus", $7::"AuthProvider", NOW(), NOW())
       RETURNING id, name, email, "passwordHash", role, "accessStatus", provider, "createdAt"
     `,
     id,
@@ -449,7 +449,7 @@ async function countUsersByStatus(role: UserRole, accessStatus: AccessStatus) {
     `
       SELECT COUNT(*)::bigint AS count
       FROM public.users
-      WHERE role = $1 AND "accessStatus" = $2
+      WHERE role = $1::"UserRole" AND "accessStatus" = $2::"AccessStatus"
     `,
     role,
     accessStatus
@@ -484,7 +484,7 @@ async function updateUserAccess(userId: string, accessStatus: AccessStatus): Pro
   const rows = await prisma.$queryRawUnsafe<DbUser[]>(
     `
       UPDATE public.users
-      SET "accessStatus" = $2, "updatedAt" = NOW()
+      SET "accessStatus" = $2::"AccessStatus", "updatedAt" = NOW()
       WHERE id = $1
       RETURNING id, name, email, "passwordHash", role, "accessStatus", provider, "createdAt"
     `,
