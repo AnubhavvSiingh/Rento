@@ -6,6 +6,27 @@ Rento is a two-sided rental marketplace:
 - Advertisers can create login credentials, wait for approval, and then manage pricing and rental activity.
 - Admin can monitor advertiser registrations and grant or suspend access from the dashboard.
 
+#Why Rento? 
+
+- In today's world, people make the most of rented products, giving them a sense of ownership to enhance the overall experience we need to provide them. This sense of ownership leads to greater engagement and better care for the product. The more people engage, the better the product is utilized and maintained.
+- So to counter it, we can't keep names which make sense for **rentals**
+- In this fast-moving atmosphere, no one is buying their flats. They all seemed to renting them out.
+- People look for temporary solutions rather than buy the items as permanent solutions.
+- Buying them costs more and makes it more tedious to take all the items when they move out from one city to another.
+- Some people wish to keep some items, such as antiques or wedding lehengas. But buying a wedding lehenga or any antique would cost more, so why not rent them for their ceremony?
+- For people who don't earn more but wish to keep some domestic items with them, rentals can help them, by providing low-cost rentals to them.
+- We can also expand the business into the apparel section since influencers often buy dresses from e-commerce sites. However, they receive them a day later, wear them once, and then return the apparel to the e-commerce company.
+- This process involves the cost of both delivery and returns. Additionally, you must pay the full amount upfront and then wait 2-3 days for the refund to be credited back to your account.
+- We can counter this by offering rentals at the lowest price, allowing influencers to get the product quickly and easily. This eliminates return and packaging fees—just rent it, use it for as long as needed
+    
+
+## 🏡 **PUBLIC DOMAIN INVENTORY**
+- In this kind of inventory, we can make the application bilaterally:-
+- 1. Consumer End
+- This would be a simple engagement interface, in which people can look for their products, look for advertiser's locations, and can place an order through the application.
+- 2. Advertiser’s End
+- On this end, people can host their unused products of any kind. And can ask for their rental values as per the product check validations.
+
 ## Suggested stack
 
 - Frontend: React + Vite + TypeScript
