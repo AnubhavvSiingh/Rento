@@ -1,6 +1,13 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type Route = "home" | "explore" | "advertiser" | "admin";
+type Route =
+  | "home"
+  | "explore"
+  | "customer-auth"
+  | "customer-shipping"
+  | "customer-confirmation"
+  | "advertiser"
+  | "admin";
 
 type Product = {
   id: string;
@@ -75,6 +82,29 @@ type AdminDashboard = {
     suspended: number;
   };
   advertisers: User[];
+};
+
+type CustomerAuthMode = "signup" | "signin";
+type AdminFilter = "ALL" | "APPROVED" | "PENDING" | "SUSPENDED";
+
+type CustomerProfile = {
+  fullName: string;
+  email: string;
+  phone: string;
+};
+
+type StoredCustomerAccount = CustomerProfile & {
+  password: string;
+};
+
+type ShippingDetails = {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  shipmentDate: string;
+  deliveryInstructions: string;
 };
 
 const apiBaseUrl = "http://localhost:4000";
@@ -155,7 +185,22 @@ export default function App() {
   const [hostDashboard, setHostDashboard] = useState<HostDashboard | null>(null);
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null);
   const [statusMessage, setStatusMessage] = useState("Choose how you want to enter Rento.");
-  const [rentingProductId, setRentingProductId] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [customerAuthMode, setCustomerAuthMode] = useState<CustomerAuthMode>("signup");
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const [shippingDetails, setShippingDetails] = useState<ShippingDetails | null>(null);
+  const [adminSearch, setAdminSearch] = useState("");
+  const [adminFilter, setAdminFilter] = useState<AdminFilter>("ALL");
+  const [registeredAdvertiserEmail, setRegisteredAdvertiserEmail] = useState<string | null>(
+    localStorage.getItem("rento_registered_advertiser_email")
+  );
+  const [advertiserRegistrationStatus, setAdvertiserRegistrationStatus] = useState<
+    User["accessStatus"] | null
+  >(null);
+  const [customerAccounts, setCustomerAccounts] = useState<StoredCustomerAccount[]>(() => {
+    const raw = localStorage.getItem("rento_customer_accounts");
+    return raw ? (JSON.parse(raw) as StoredCustomerAccount[]) : [];
+  });
 
   useEffect(() => {
     void loadMarketplace();
@@ -193,6 +238,20 @@ export default function App() {
       setAdminDashboard(null);
     }
   }, [adminToken]);
+
+  useEffect(() => {
+    if (registeredAdvertiserEmail) {
+      localStorage.setItem("rento_registered_advertiser_email", registeredAdvertiserEmail);
+      void refreshAdvertiserApprovalStatus(registeredAdvertiserEmail);
+    } else {
+      localStorage.removeItem("rento_registered_advertiser_email");
+      setAdvertiserRegistrationStatus(null);
+    }
+  }, [registeredAdvertiserEmail]);
+
+  useEffect(() => {
+    localStorage.setItem("rento_customer_accounts", JSON.stringify(customerAccounts));
+  }, [customerAccounts]);
 
   async function loadMarketplace() {
     try {
@@ -275,12 +334,32 @@ export default function App() {
     }
   }
 
+  async function refreshAdvertiserApprovalStatus(email: string) {
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/auth/advertiser-status?email=${encodeURIComponent(email)}`
+      );
+
+      if (!response.ok) {
+        setAdvertiserRegistrationStatus(null);
+        return;
+      }
+
+      const data = (await response.json()) as { accessStatus: User["accessStatus"] };
+      setAdvertiserRegistrationStatus(data.accessStatus);
+    } catch (error) {
+      console.error(error);
+      setAdvertiserRegistrationStatus(null);
+    }
+  }
+
   async function registerAdvertiser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "").toLowerCase();
     const payload = {
       name: String(form.get("name") ?? ""),
-      email: String(form.get("email") ?? ""),
+      email,
       password: String(form.get("password") ?? "")
     };
 
@@ -294,6 +373,8 @@ export default function App() {
     setStatusMessage(data.message ?? "Advertiser account submitted.");
 
     if (response.ok) {
+      setRegisteredAdvertiserEmail(email);
+      setAdvertiserRegistrationStatus("PENDING");
       event.currentTarget.reset();
       if (adminToken) {
         void loadAdminDashboard(adminToken);
@@ -406,12 +487,83 @@ export default function App() {
     window.location.hash = nextRoute === "home" ? "" : nextRoute;
   }
 
-  function rentProduct(product: Product) {
-    setRentingProductId(product.id);
-    setStatusMessage(
-      `Rental request started for "${product.name}". We can turn this into a checkout flow next.`
-    );
+  function beginRentFlow(product: Product) {
+    setSelectedProduct(product);
+    setCustomerProfile(null);
+    setShippingDetails(null);
+    setCustomerAuthMode("signup");
+    navigate("customer-auth");
+    setStatusMessage(`Continue your rental for "${product.name}".`);
   }
+
+  function submitCustomerAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    const email = String(form.get("email") ?? "").toLowerCase();
+    const password = String(form.get("password") ?? "");
+
+    if (customerAuthMode === "signup") {
+      const profile = {
+        fullName: String(form.get("fullName") ?? ""),
+        email,
+        phone: String(form.get("phone") ?? "")
+      };
+
+      const existingAccount = customerAccounts.find((item) => item.email === email);
+      if (existingAccount) {
+        setStatusMessage("This customer email already exists. Please sign in instead.");
+        return;
+      }
+
+      setCustomerAccounts((current) => [...current, { ...profile, password }]);
+      setCustomerProfile(profile);
+    } else {
+      const existingAccount = customerAccounts.find(
+        (item) => item.email === email && item.password === password
+      );
+
+      if (!existingAccount) {
+        setStatusMessage("Invalid customer email or password.");
+        return;
+      }
+
+      setCustomerProfile({
+        fullName: existingAccount.fullName,
+        email: existingAccount.email,
+        phone: existingAccount.phone
+      });
+    }
+
+    navigate("customer-shipping");
+    setStatusMessage("Add shipment details to place your rental order.");
+  }
+
+  function submitShipping(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    setShippingDetails({
+      addressLine1: String(form.get("addressLine1") ?? ""),
+      addressLine2: String(form.get("addressLine2") ?? ""),
+      city: String(form.get("city") ?? ""),
+      state: String(form.get("state") ?? ""),
+      postalCode: String(form.get("postalCode") ?? ""),
+      shipmentDate: String(form.get("shipmentDate") ?? ""),
+      deliveryInstructions: String(form.get("deliveryInstructions") ?? "")
+    });
+    navigate("customer-confirmation");
+    setStatusMessage("Your order has been placed. We will email you the shipment tracking link shortly.");
+  }
+
+  const filteredAdvertisers = useMemo(() => {
+    const advertisers = adminDashboard?.advertisers ?? [];
+    return advertisers.filter((user) => {
+      const matchesSearch = user.email.toLowerCase().includes(adminSearch.toLowerCase());
+      const matchesFilter = adminFilter === "ALL" ? true : user.accessStatus === adminFilter;
+      return matchesSearch && matchesFilter;
+    });
+  }, [adminDashboard, adminFilter, adminSearch]);
 
   return (
     <div className="app-shell">
@@ -425,8 +577,31 @@ export default function App() {
             products={products}
             overview={overview}
             navigate={navigate}
-            onRent={rentProduct}
-            rentingProductId={rentingProductId}
+            onRent={beginRentFlow}
+            selectedProduct={selectedProduct}
+          />
+        )}
+        {route === "customer-auth" && (
+          <CustomerAuthPage
+            mode={customerAuthMode}
+            product={selectedProduct}
+            onModeChange={setCustomerAuthMode}
+            onSubmit={submitCustomerAuth}
+          />
+        )}
+        {route === "customer-shipping" && (
+          <CustomerShippingPage
+            product={selectedProduct}
+            customerProfile={customerProfile}
+            onSubmit={submitShipping}
+          />
+        )}
+        {route === "customer-confirmation" && (
+          <CustomerConfirmationPage
+            product={selectedProduct}
+            customerProfile={customerProfile}
+            shippingDetails={shippingDetails}
+            onExploreAgain={() => navigate("explore")}
           />
         )}
         {route === "advertiser" && (
@@ -434,7 +609,14 @@ export default function App() {
             advertiserUser={advertiserUser}
             hostDashboard={hostDashboard}
             statusMessage={statusMessage}
+            registeredAdvertiserEmail={registeredAdvertiserEmail}
+            advertiserRegistrationStatus={advertiserRegistrationStatus}
             onRegister={registerAdvertiser}
+            onRefreshApproval={() =>
+              registeredAdvertiserEmail
+                ? refreshAdvertiserApprovalStatus(registeredAdvertiserEmail)
+                : Promise.resolve()
+            }
             onLogin={login}
             onLogout={() => setAdvertiserToken(null)}
             onSubmitProduct={submitProduct}
@@ -444,7 +626,12 @@ export default function App() {
           <AdminPage
             adminUser={adminUser}
             adminDashboard={adminDashboard}
+            filteredAdvertisers={filteredAdvertisers}
+            adminSearch={adminSearch}
+            adminFilter={adminFilter}
             statusMessage={statusMessage}
+            onSearchChange={setAdminSearch}
+            onFilterChange={setAdminFilter}
             onLogin={login}
             onLogout={() => setAdminToken(null)}
             onUpdateAccess={updateAdvertiserAccess}
@@ -474,7 +661,7 @@ function TopBar({
             Main Page
           </button>
         )}
-        {route !== "explore" && (
+        {!["explore", "customer-auth", "customer-shipping", "customer-confirmation"].includes(route) && (
           <button type="button" className="ghost-button" onClick={() => navigate("explore")}>
             Explore Rento
           </button>
@@ -590,13 +777,13 @@ function ExplorePage({
   overview,
   navigate,
   onRent,
-  rentingProductId
+  selectedProduct
 }: {
   products: Product[];
   overview: Overview | null;
   navigate: (route: Route) => void;
   onRent: (product: Product) => void;
-  rentingProductId: string | null;
+  selectedProduct: Product | null;
 }) {
   return (
     <main className="page-shell">
@@ -646,7 +833,7 @@ function ExplorePage({
                 className="primary-button"
                 onClick={() => onRent(product)}
               >
-                {rentingProductId === product.id ? "Rental Requested" : "Rent this item"}
+                {selectedProduct?.id === product.id ? "Continue Rental" : "Rent this item"}
               </button>
             </div>
           </article>
@@ -666,11 +853,158 @@ function ExplorePage({
   );
 }
 
+function CustomerAuthPage({
+  mode,
+  product,
+  onModeChange,
+  onSubmit
+}: {
+  mode: CustomerAuthMode;
+  product: Product | null;
+  onModeChange: (mode: CustomerAuthMode) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <main className="page-shell">
+      <section className="auth-layout">
+        <article className="auth-card">
+          <p className="eyebrow">Customer Access</p>
+          <h2>{mode === "signup" ? "Create your renter account" : "Sign in to continue your rental"}</h2>
+          <div className="tab-row">
+            <button
+              type="button"
+              className={mode === "signup" ? "filter-chip active" : "filter-chip"}
+              onClick={() => onModeChange("signup")}
+            >
+              Sign up
+            </button>
+            <button
+              type="button"
+              className={mode === "signin" ? "filter-chip active" : "filter-chip"}
+              onClick={() => onModeChange("signin")}
+            >
+              Sign in
+            </button>
+          </div>
+          <form className="stack-form" onSubmit={onSubmit}>
+            {mode === "signup" && (
+              <input name="fullName" type="text" placeholder="Full name" required />
+            )}
+            <input name="email" type="email" placeholder="Email address" required />
+            {mode === "signup" && (
+              <input name="phone" type="tel" placeholder="Phone number" required />
+            )}
+            <input name="password" type="password" placeholder="Password" required />
+            <button type="submit" className="primary-button">
+              Continue to shipment details
+            </button>
+          </form>
+        </article>
+        <article className="dashboard-card">
+          <p className="eyebrow">Rental Checkout</p>
+          <h3>{product?.name ?? "Selected item"}</h3>
+          <p className="meta-line">
+            {product?.city ?? "City"} | Rs {product?.dailyRate ?? 0}/day | Deposit Rs {product?.deposit ?? 0}
+          </p>
+          <p>
+            Continue with a customer account so we can save your shipment details,
+            confirm your rental booking, and email you tracking updates.
+          </p>
+        </article>
+      </section>
+    </main>
+  );
+}
+
+function CustomerShippingPage({
+  product,
+  customerProfile,
+  onSubmit
+}: {
+  product: Product | null;
+  customerProfile: CustomerProfile | null;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <main className="page-shell">
+      <section className="auth-layout">
+        <article className="auth-card">
+          <p className="eyebrow">Shipment Details</p>
+          <h2>Tell us where and when to send your rental.</h2>
+          <form className="stack-form" onSubmit={onSubmit}>
+            <input name="addressLine1" type="text" placeholder="Address line 1" required />
+            <input name="addressLine2" type="text" placeholder="Address line 2" />
+            <input name="city" type="text" placeholder="City" required />
+            <input name="state" type="text" placeholder="State" required />
+            <input name="postalCode" type="text" placeholder="Postal code" required />
+            <input name="shipmentDate" type="date" required />
+            <textarea
+              name="deliveryInstructions"
+              placeholder="Delivery instructions, landmark, preferred time, etc."
+              required
+            />
+            <button type="submit" className="primary-button">
+              Place rental order
+            </button>
+          </form>
+        </article>
+        <article className="dashboard-card">
+          <p className="eyebrow">Order Summary</p>
+          <h3>{product?.name ?? "Rental item"}</h3>
+          <p className="meta-line">
+            Renter: {customerProfile?.fullName ?? "Customer"} | {customerProfile?.email ?? "-"}
+          </p>
+          <p>
+            We’ll use these details to prepare shipment, coordinate delivery, and
+            keep your rental moving smoothly.
+          </p>
+        </article>
+      </section>
+    </main>
+  );
+}
+
+function CustomerConfirmationPage({
+  product,
+  customerProfile,
+  shippingDetails,
+  onExploreAgain
+}: {
+  product: Product | null;
+  customerProfile: CustomerProfile | null;
+  shippingDetails: ShippingDetails | null;
+  onExploreAgain: () => void;
+}) {
+  return (
+    <main className="page-shell">
+      <section className="confirmation-card">
+        <p className="eyebrow">Confirmation</p>
+        <h2>Your order has been placed.</h2>
+        <p className="section-text">
+          We will email you the shipment tracking link shortly.
+        </p>
+        <div className="mini-grid four-up">
+          <div>Item: {product?.name ?? "Rental item"}</div>
+          <div>Customer: {customerProfile?.fullName ?? "Customer"}</div>
+          <div>Ship date: {shippingDetails?.shipmentDate ?? "-"}</div>
+          <div>Destination: {shippingDetails?.city ?? "-"}</div>
+        </div>
+        <button type="button" className="primary-button" onClick={onExploreAgain}>
+          Explore more rentals
+        </button>
+      </section>
+    </main>
+  );
+}
+
 function AdvertiserPage({
   advertiserUser,
   hostDashboard,
   statusMessage,
+  registeredAdvertiserEmail,
+  advertiserRegistrationStatus,
   onRegister,
+  onRefreshApproval,
   onLogin,
   onLogout,
   onSubmitProduct
@@ -678,7 +1012,10 @@ function AdvertiserPage({
   advertiserUser: User | null;
   hostDashboard: HostDashboard | null;
   statusMessage: string;
+  registeredAdvertiserEmail: string | null;
+  advertiserRegistrationStatus: User["accessStatus"] | null;
   onRegister: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onRefreshApproval: () => Promise<void>;
   onLogin: (event: FormEvent<HTMLFormElement>, role: User["role"]) => Promise<void>;
   onLogout: () => void;
   onSubmitProduct: (event: FormEvent<HTMLFormElement>) => Promise<void>;
@@ -733,124 +1070,148 @@ function AdvertiserPage({
           </form>
         </article>
 
-        <article className="auth-card">
-          <p className="eyebrow">Step 2</p>
-          <h3>Advertiser login</h3>
-          <form className="stack-form" onSubmit={(event) => void onLogin(event, "ADVERTISER")}>
-            <input name="email" type="email" placeholder="Advertiser email" required />
-            <input name="password" type="password" placeholder="Password" required />
-            <button type="submit" className="secondary-button">
-              Login to advertiser panel
-            </button>
-          </form>
-          <p className="meta-line">
-            Only approved advertisers can enter the dashboard and post products.
-          </p>
-        </article>
-      </section>
-
-      <section className="dashboard-grid">
-        <article className="dashboard-card">
-          <p className="eyebrow">Advertiser Dashboard</p>
-          {advertiserUser ? (
-            <>
-              <h3>{advertiserUser.name}</h3>
-              <p className="meta-line">
-                {advertiserUser.email} | {advertiserUser.accessStatus}
-              </p>
-              {hostDashboard ? (
-                <>
-                  <div className="mini-grid four-up">
-                    <div>Total listings: {hostDashboard.summary.totalListings}</div>
-                    <div>Revenue: Rs {hostDashboard.summary.monthlyRevenue}</div>
-                    <div>Utilization: {hostDashboard.summary.utilizationRate}%</div>
-                    <div>Verified: {hostDashboard.summary.verifiedListings}</div>
-                  </div>
-                  <ul className="list-block">
-                    {hostDashboard.actions.map((action) => (
-                      <li key={action}>{action}</li>
-                    ))}
-                  </ul>
-                  <section className="chart-section">
-                    <div className="mini-grid four-up">
-                      <div>Portfolio revenue: Rs {hostDashboard.performance.portfolioRevenue}</div>
-                      <div>Portfolio cost: Rs {hostDashboard.performance.portfolioCost}</div>
-                      <div>ROI gain: {hostDashboard.performance.portfolioRoiPercent}%</div>
-                      <div>
-                        Best listing ROI:{" "}
-                        {Math.max(
-                          0,
-                          ...hostDashboard.performance.listingPerformance.map(
-                            (item) => item.roiPercent
-                          )
-                        )}
-                        %
-                      </div>
-                    </div>
-                    <div className="chart-grid">
-                      <div className="chart-card">
-                        <p className="eyebrow">Revenue vs Cost</p>
-                        <RoiTrendChart trend={hostDashboard.performance.roiTrend} />
-                      </div>
-                      <div className="chart-card">
-                        <p className="eyebrow">Listing Performance</p>
-                        <ListingPerformanceChart
-                          listings={hostDashboard.performance.listingPerformance}
-                        />
-                      </div>
-                    </div>
-                  </section>
-                  <div className="listing-stack">
-                    {hostDashboard.listings.map((listing) => (
-                      <div key={listing.id} className="listing-item">
-                        <strong>{listing.name}</strong>
-                        <span>
-                          {listing.city} | Rs {listing.dailyRate}/day
-                        </span>
-                      </div>
-                    ))}
-                    {hostDashboard.listings.length === 0 && (
-                      <p className="meta-line">No products posted yet.</p>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <p className="meta-line">Waiting for dashboard data.</p>
-              )}
-              <button type="button" className="secondary-button" onClick={onLogout}>
-                Logout advertiser
-              </button>
-            </>
-          ) : (
+        {!advertiserUser && registeredAdvertiserEmail && advertiserRegistrationStatus !== "APPROVED" && (
+          <article className="auth-card">
+            <p className="eyebrow">Approval Status</p>
+            <h3>
+              {advertiserRegistrationStatus === "SUSPENDED"
+                ? "Access is currently suspended."
+                : "Awaiting approval"}
+            </h3>
             <p className="meta-line">
-              Login with an approved advertiser account to open the dashboard.
+              {registeredAdvertiserEmail}
+              {" | "}
+              {advertiserRegistrationStatus ?? "PENDING"}
             </p>
-          )}
-        </article>
-
-        <article className="dashboard-card">
-          <p className="eyebrow">Post Advertisement</p>
-          <h3>Publish a product listing</h3>
-          <form className="stack-form" onSubmit={(event) => void onSubmitProduct(event)}>
-            <input name="name" type="text" placeholder="Product name" required />
-            <select name="category" defaultValue="Furniture" required>
-              {advertiserCategories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-            <input name="city" type="text" placeholder="City" required />
-            <input name="dailyRate" type="number" placeholder="Daily rent" min="1" required />
-            <input name="deposit" type="number" placeholder="Deposit amount" min="0" required />
-            <textarea name="description" placeholder="Describe the advertisement" required />
-            <input name="tags" type="text" placeholder="Tags separated by commas" />
-            <button type="submit" className="primary-button">
-              Post product advertisement
+            <p>
+              {advertiserRegistrationStatus === "SUSPENDED"
+                ? "Admin has suspended this advertiser account for now."
+                : 'Your advertiser account is awaiting approval. Press refresh to check the latest status.'}
+            </p>
+            <button type="button" className="secondary-button" onClick={() => void onRefreshApproval()}>
+              Refresh approval status
             </button>
-          </form>
-        </article>
+          </article>
+        )}
+
+        {!advertiserUser && advertiserRegistrationStatus === "APPROVED" && (
+          <article className="auth-card">
+            <p className="eyebrow">Step 2</p>
+            <h3>Advertiser login</h3>
+            <form className="stack-form" onSubmit={(event) => void onLogin(event, "ADVERTISER")}>
+              <input
+                name="email"
+                type="email"
+                placeholder="Advertiser email"
+                defaultValue={registeredAdvertiserEmail ?? ""}
+                required
+              />
+              <input name="password" type="password" placeholder="Password" required />
+              <button type="submit" className="secondary-button">
+                Login to advertiser panel
+              </button>
+            </form>
+            <p className="meta-line">
+              Approval completed. You can now log in and access your dashboard.
+            </p>
+          </article>
+        )}
       </section>
+
+      {advertiserUser && (
+        <section className="dashboard-grid">
+          <article className="dashboard-card">
+            <p className="eyebrow">Advertiser Dashboard</p>
+            <h3>{advertiserUser.name}</h3>
+            <p className="meta-line">
+              {advertiserUser.email} | {advertiserUser.accessStatus}
+            </p>
+            {hostDashboard ? (
+              <>
+                <div className="mini-grid four-up">
+                  <div>Total listings: {hostDashboard.summary.totalListings}</div>
+                  <div>Revenue: Rs {hostDashboard.summary.monthlyRevenue}</div>
+                  <div>Utilization: {hostDashboard.summary.utilizationRate}%</div>
+                  <div>Verified: {hostDashboard.summary.verifiedListings}</div>
+                </div>
+                <ul className="list-block">
+                  {hostDashboard.actions.map((action) => (
+                    <li key={action}>{action}</li>
+                  ))}
+                </ul>
+                <section className="chart-section">
+                  <div className="mini-grid four-up">
+                    <div>Portfolio revenue: Rs {hostDashboard.performance.portfolioRevenue}</div>
+                    <div>Portfolio cost: Rs {hostDashboard.performance.portfolioCost}</div>
+                    <div>ROI gain: {hostDashboard.performance.portfolioRoiPercent}%</div>
+                    <div>
+                      Best listing ROI:{" "}
+                      {Math.max(
+                        0,
+                        ...hostDashboard.performance.listingPerformance.map((item) => item.roiPercent)
+                      )}
+                      %
+                    </div>
+                  </div>
+                  <div className="chart-grid">
+                    <div className="chart-card">
+                      <p className="eyebrow">Revenue vs Cost</p>
+                      <RoiTrendChart trend={hostDashboard.performance.roiTrend} />
+                    </div>
+                    <div className="chart-card">
+                      <p className="eyebrow">Listing Performance</p>
+                      <ListingPerformanceChart
+                        listings={hostDashboard.performance.listingPerformance}
+                      />
+                    </div>
+                  </div>
+                </section>
+                <div className="listing-stack">
+                  {hostDashboard.listings.map((listing) => (
+                    <div key={listing.id} className="listing-item">
+                      <strong>{listing.name}</strong>
+                      <span>
+                        {listing.city} | Rs {listing.dailyRate}/day
+                      </span>
+                    </div>
+                  ))}
+                  {hostDashboard.listings.length === 0 && (
+                    <p className="meta-line">No products posted yet.</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="meta-line">Waiting for dashboard data.</p>
+            )}
+            <button type="button" className="secondary-button" onClick={onLogout}>
+              Logout advertiser
+            </button>
+          </article>
+
+          <article className="dashboard-card">
+            <p className="eyebrow">Post Advertisement</p>
+            <h3>Publish a product listing</h3>
+            <form className="stack-form" onSubmit={(event) => void onSubmitProduct(event)}>
+              <input name="name" type="text" placeholder="Product name" required />
+              <select name="category" defaultValue="Furniture" required>
+                {advertiserCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              <input name="city" type="text" placeholder="City" required />
+              <input name="dailyRate" type="number" placeholder="Daily rent" min="1" required />
+              <input name="deposit" type="number" placeholder="Deposit amount" min="0" required />
+              <textarea name="description" placeholder="Describe the advertisement" required />
+              <input name="tags" type="text" placeholder="Tags separated by commas" />
+              <button type="submit" className="primary-button">
+                Post product advertisement
+              </button>
+            </form>
+          </article>
+        </section>
+      )}
       <section className="visual-gallery compact-gallery">
         {advertiserVisuals.map((item) => (
           <article key={item.title} className="image-card mini-image-card">
@@ -869,18 +1230,35 @@ function AdvertiserPage({
 function AdminPage({
   adminUser,
   adminDashboard,
+  filteredAdvertisers,
+  adminSearch,
+  adminFilter,
   statusMessage,
+  onSearchChange,
+  onFilterChange,
   onLogin,
   onLogout,
   onUpdateAccess
 }: {
   adminUser: User | null;
   adminDashboard: AdminDashboard | null;
+  filteredAdvertisers: User[];
+  adminSearch: string;
+  adminFilter: AdminFilter;
   statusMessage: string;
+  onSearchChange: (value: string) => void;
+  onFilterChange: (filter: AdminFilter) => void;
   onLogin: (event: FormEvent<HTMLFormElement>, role: User["role"]) => Promise<void>;
   onLogout: () => void;
   onUpdateAccess: (userId: string, accessStatus: User["accessStatus"]) => Promise<void>;
 }) {
+  const filterCards = [
+    { label: "Total advertisers", value: adminDashboard?.summary.totalAdvertisers ?? 0, key: "ALL" as AdminFilter },
+    { label: "Approved", value: adminDashboard?.summary.approved ?? 0, key: "APPROVED" as AdminFilter },
+    { label: "Pending", value: adminDashboard?.summary.pending ?? 0, key: "PENDING" as AdminFilter },
+    { label: "Suspended", value: adminDashboard?.summary.suspended ?? 0, key: "SUSPENDED" as AdminFilter }
+  ];
+
   return (
     <main className="page-shell">
       <section className="section-header">
@@ -915,11 +1293,26 @@ function AdminPage({
           <p className="eyebrow">Registration Dashboard</p>
           {adminUser && adminDashboard ? (
             <>
-              <div className="mini-grid four-up">
-                <div>Total advertisers: {adminDashboard.summary.totalAdvertisers}</div>
-                <div>Approved: {adminDashboard.summary.approved}</div>
-                <div>Pending: {adminDashboard.summary.pending}</div>
-                <div>Suspended: {adminDashboard.summary.suspended}</div>
+              <div className="filter-card-grid">
+                {filterCards.map((card) => (
+                  <button
+                    key={card.key}
+                    type="button"
+                    className={adminFilter === card.key ? "filter-summary-card active" : "filter-summary-card"}
+                    onClick={() => onFilterChange(card.key)}
+                  >
+                    <span>{card.label}</span>
+                    <strong>{card.value}</strong>
+                  </button>
+                ))}
+              </div>
+              <div className="search-row">
+                <input
+                  type="text"
+                  value={adminSearch}
+                  onChange={(event) => onSearchChange(event.target.value)}
+                  placeholder="Search through Login ID"
+                />
               </div>
 
               <div className="table-wrap">
@@ -933,7 +1326,7 @@ function AdminPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {adminDashboard.advertisers.map((user) => (
+                    {filteredAdvertisers.map((user) => (
                       <tr key={user.id}>
                         <td>{user.name}</td>
                         <td>{user.email}</td>
@@ -965,6 +1358,9 @@ function AdminPage({
                     ))}
                   </tbody>
                 </table>
+                {filteredAdvertisers.length === 0 && (
+                  <p className="meta-line">No login IDs matched this search or filter.</p>
+                )}
               </div>
               <button type="button" className="secondary-button" onClick={onLogout}>
                 Logout admin
@@ -1133,7 +1529,14 @@ function AdvertiserGraphic() {
 
 function getRouteFromHash(): Route {
   const value = window.location.hash.replace("#", "");
-  if (value === "explore" || value === "advertiser" || value === "admin") {
+  if (
+    value === "explore" ||
+    value === "customer-auth" ||
+    value === "customer-shipping" ||
+    value === "customer-confirmation" ||
+    value === "advertiser" ||
+    value === "admin"
+  ) {
     return value;
   }
 

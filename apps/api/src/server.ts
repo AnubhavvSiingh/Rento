@@ -184,6 +184,32 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+app.get("/api/auth/advertiser-status", async (req, res) => {
+  const email = typeof req.query.email === "string" ? req.query.email.toLowerCase() : "";
+
+  if (!email) {
+    res.status(400).json({ message: "Email is required." });
+    return;
+  }
+
+  try {
+    const user = await findUserByEmail(email);
+
+    if (!user || user.role !== "ADVERTISER") {
+      res.status(404).json({ message: "Advertiser account not found." });
+      return;
+    }
+
+    res.json({
+      email: user.email,
+      accessStatus: user.accessStatus
+    });
+  } catch (error) {
+    console.error("Failed to fetch advertiser status:", error);
+    res.status(500).json({ message: "Unable to load advertiser status." });
+  }
+});
+
 app.get(
   "/api/auth/me",
   requireAuth(),

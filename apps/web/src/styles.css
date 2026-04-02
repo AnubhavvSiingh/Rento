@@ -152,7 +152,9 @@ button {
 .secondary-button,
 .ghost-button,
 .mini-admin-button,
-.tiny-button {
+.tiny-button,
+.filter-chip,
+.filter-summary-card {
   padding: 12px 18px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -167,9 +169,17 @@ button {
 .secondary-button,
 .ghost-button,
 .mini-admin-button,
-.tiny-button {
+.tiny-button,
+.filter-chip,
+.filter-summary-card {
   background: rgba(255, 255, 255, 0.6);
   color: var(--ink);
+}
+
+.filter-chip.active,
+.filter-summary-card.active {
+  background: var(--accent);
+  color: #fff7f2;
 }
 
 .mini-admin-button {
@@ -367,6 +377,20 @@ button {
   gap: 18px;
 }
 
+.confirmation-card {
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+}
+
+.tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .wide-card {
   grid-column: span 1;
 }
@@ -414,6 +438,37 @@ button {
 
 .chart-section {
   margin: 20px 0;
+}
+
+.filter-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.filter-summary-card {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  text-align: left;
+  border-radius: 24px;
+}
+
+.filter-summary-card strong {
+  font-size: 1.5rem;
+}
+
+.search-row {
+  margin-bottom: 18px;
+}
+
+.search-row input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: white;
 }
 
 .chart-grid {
