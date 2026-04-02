@@ -45,6 +45,26 @@ type HostDashboard = {
   };
   actions: string[];
   listings: Product[];
+  performance: {
+    portfolioRevenue: number;
+    portfolioCost: number;
+    portfolioRoiPercent: number;
+    listingPerformance: Array<{
+      productId: string;
+      name: string;
+      views: number;
+      inquiries: number;
+      bookedDays: number;
+      revenueGenerated: number;
+      upkeepCost: number;
+      roiPercent: number;
+    }>;
+    roiTrend: Array<{
+      label: string;
+      revenue: number;
+      cost: number;
+    }>;
+  };
 };
 
 type AdminDashboard = {
@@ -64,6 +84,60 @@ const advertiserCategories = [
   "Fashion",
   "Ceremony",
   "Electronics"
+];
+const homeVisuals = [
+  {
+    title: "Wedding lehenga and occasion wear",
+    note: "Apparel rentals for ceremonies, shoots, and one-time events.",
+    image:
+      "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    title: "Furniture for moving and city living",
+    note: "Make temporary homes feel complete without long-term buying costs.",
+    image:
+      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    title: "Appliances and essentials on demand",
+    note: "Useful daily items ready to rent for flexible lifestyles.",
+    image:
+      "https://images.unsplash.com/photo-1586208958839-06c17cacdf08?auto=format&fit=crop&w=900&q=80"
+  }
+];
+const exploreVisuals = [
+  {
+    title: "Studio-ready fashion rentals",
+    note: "Aesthetic apparel options that feel premium and camera-ready.",
+    image:
+      "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    title: "Soft modern interiors",
+    note: "Furniture listings that help renters imagine the space instantly.",
+    image:
+      "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=900&q=80"
+  }
+];
+const advertiserVisuals = [
+  {
+    title: "Well-photographed listings perform better",
+    note: "Clean composition and good lighting drive more views and inquiries.",
+    image:
+      "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    title: "Home essentials that feel trustworthy",
+    note: "Polished images make practical products feel easier to rent quickly.",
+    image:
+      "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    title: "Event and ceremony inventory that stands out",
+    note: "Beautiful category presentation helps advertisers win attention faster.",
+    image:
+      "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80"
+  }
 ];
 
 export default function App() {
@@ -342,39 +416,42 @@ export default function App() {
   return (
     <div className="app-shell">
       <TopBar route={route} navigate={navigate} />
-      {route === "home" && (
-        <HomePage overview={overview} navigate={navigate} statusMessage={statusMessage} />
-      )}
-      {route === "explore" && (
-        <ExplorePage
-          products={products}
-          overview={overview}
-          navigate={navigate}
-          onRent={rentProduct}
-          rentingProductId={rentingProductId}
-        />
-      )}
-      {route === "advertiser" && (
-        <AdvertiserPage
-          advertiserUser={advertiserUser}
-          hostDashboard={hostDashboard}
-          statusMessage={statusMessage}
-          onRegister={registerAdvertiser}
-          onLogin={login}
-          onLogout={() => setAdvertiserToken(null)}
-          onSubmitProduct={submitProduct}
-        />
-      )}
-      {route === "admin" && (
-        <AdminPage
-          adminUser={adminUser}
-          adminDashboard={adminDashboard}
-          statusMessage={statusMessage}
-          onLogin={login}
-          onLogout={() => setAdminToken(null)}
-          onUpdateAccess={updateAdvertiserAccess}
-        />
-      )}
+      <div key={route} className="page-stage">
+        {route === "home" && (
+          <HomePage overview={overview} navigate={navigate} statusMessage={statusMessage} />
+        )}
+        {route === "explore" && (
+          <ExplorePage
+            products={products}
+            overview={overview}
+            navigate={navigate}
+            onRent={rentProduct}
+            rentingProductId={rentingProductId}
+          />
+        )}
+        {route === "advertiser" && (
+          <AdvertiserPage
+            advertiserUser={advertiserUser}
+            hostDashboard={hostDashboard}
+            statusMessage={statusMessage}
+            onRegister={registerAdvertiser}
+            onLogin={login}
+            onLogout={() => setAdvertiserToken(null)}
+            onSubmitProduct={submitProduct}
+          />
+        )}
+        {route === "admin" && (
+          <AdminPage
+            adminUser={adminUser}
+            adminDashboard={adminDashboard}
+            statusMessage={statusMessage}
+            onLogin={login}
+            onLogout={() => setAdminToken(null)}
+            onUpdateAccess={updateAdvertiserAccess}
+          />
+        )}
+      </div>
+      <Footer />
     </div>
   );
 }
@@ -431,8 +508,9 @@ function HomePage({
           <p className="eyebrow">Main Page</p>
           <h1>Choose your Rento journey in one click.</h1>
           <p className="hero-text">
-            People can either explore listed products, become advertisers, or enter
-            the admin control room. Each path now has its own dedicated page.
+            Discover beautifully listed rentals, turn unused items into earning
+            assets, or step into the admin control room. Rento is built to keep
+            people reading, browsing, and posting with confidence.
           </p>
           <div className="main-actions">
             <button type="button" className="primary-button" onClick={() => navigate("advertiser")}>
@@ -443,24 +521,65 @@ function HomePage({
             </button>
           </div>
           <p className="status-banner">{statusMessage}</p>
+          <div className="story-ribbon">
+            <span>More listings get attention</span>
+            <span>More renters discover value</span>
+            <span>More unused items find a second life</span>
+          </div>
+          <CuteBadgeRow />
         </div>
         <div className="hero-panel">
           <p className="panel-title">Live platform snapshot</p>
           <div className="stat-strip">
-            <div>
+            <div className="stat-box">
               <strong>{overview?.stats.listedProducts ?? "-"}</strong>
-              <span>Advertisements</span>
+              <span className="stat-label">Advertisements</span>
             </div>
-            <div>
+            <div className="stat-box">
               <strong>{overview?.stats.activeHosts ?? "-"}</strong>
-              <span>Advertisers</span>
+              <span className="stat-label">Advertisers</span>
             </div>
-            <div>
+            <div className="stat-box">
               <strong>{overview?.stats.cities ?? "-"}</strong>
-              <span>Cities</span>
+              <span className="stat-label">Cities</span>
             </div>
           </div>
+          <div className="visual-frame">
+            <HomeGraphic />
+          </div>
         </div>
+      </section>
+
+      <section className="story-grid">
+        <article className="story-card">
+          <p className="eyebrow">Why People Stay</p>
+          <h3>Rento keeps customers engaged by making temporary ownership feel easy.</h3>
+          <p>
+            The easier it is to discover trusted rentals, the longer people browse,
+            compare, and book. That creates more visibility for every advertiser on
+            the platform.
+          </p>
+        </article>
+        <article className="story-card">
+          <p className="eyebrow">Why Advertisers Post</p>
+          <h3>Unused inventory becomes visible, useful, and profitable.</h3>
+          <p>
+            Furniture, fashion, appliances, and event pieces can all keep moving
+            instead of staying idle. Better presentation turns more page visitors
+            into real renters.
+          </p>
+        </article>
+      </section>
+      <section className="visual-gallery">
+        {homeVisuals.map((item) => (
+          <article key={item.title} className="image-card">
+            <img src={item.image} alt={item.title} />
+            <div className="image-card-copy">
+              <h3>{item.title}</h3>
+              <p>{item.note}</p>
+            </div>
+          </article>
+        ))}
       </section>
     </main>
   );
@@ -487,12 +606,29 @@ function ExplorePage({
           <h2>Explore all posted advertisements and rent what you need.</h2>
           <p className="section-text">
             {overview?.positioning ??
-              "Browse products from approved advertisers and start renting immediately."}
+              "Browse products from approved advertisers and start renting immediately."} Every
+            listing is designed to pull the customer deeper into discovery so more
+            people rent instead of delay.
           </p>
         </div>
         <button type="button" className="secondary-button" onClick={() => navigate("advertiser")}>
           Want to post instead?
         </button>
+      </section>
+      <section className="feature-band">
+        <div className="feature-copy">
+          <p className="eyebrow">Explore More</p>
+          <h3>More people arrive here to browse useful, stylish, ready-to-rent items.</h3>
+          <p>
+            The explore page should feel active and trustworthy. Rich visuals and
+            strong descriptions help customers rent faster and help advertisers get
+            more attention on their products.
+          </p>
+          <CuteBadgeRow />
+        </div>
+        <div className="visual-frame slim">
+          <ExploreGraphic />
+        </div>
       </section>
       <section className="cards cards-wide">
         {products.map((product) => (
@@ -512,6 +648,16 @@ function ExplorePage({
               >
                 {rentingProductId === product.id ? "Rental Requested" : "Rent this item"}
               </button>
+            </div>
+          </article>
+        ))}
+      </section>
+      <section className="visual-gallery compact-gallery">
+        {exploreVisuals.map((item) => (
+          <article key={item.title} className="image-card mini-image-card">
+            <img src={item.image} alt={item.title} />
+            <div className="image-card-copy">
+              <h3>{item.title}</h3>
             </div>
           </article>
         ))}
@@ -545,10 +691,26 @@ function AdvertiserPage({
           <h2>Register, login, and publish advertisements after approval.</h2>
           <p className="section-text">
             Advertisers can create an account first. Once admin approves access, they
-            can open their dashboard and post products.
+            can open their dashboard and post products that attract renters looking
+            for flexible, city-friendly solutions.
           </p>
+          <CuteBadgeRow />
         </div>
         <p className="status-banner compact">{statusMessage}</p>
+      </section>
+      <section className="feature-band advertiser-band">
+        <div className="feature-copy">
+          <p className="eyebrow">Advertise Better</p>
+          <h3>Turn every unused item into a clean, discoverable advertisement.</h3>
+          <p>
+            Better product stories, better visuals, and faster posting create more
+            visibility. The more people advertise here, the more customers return to
+            browse and rent.
+          </p>
+        </div>
+        <div className="visual-frame slim">
+          <AdvertiserGraphic />
+        </div>
       </section>
 
       <section className="auth-layout">
@@ -609,6 +771,35 @@ function AdvertiserPage({
                       <li key={action}>{action}</li>
                     ))}
                   </ul>
+                  <section className="chart-section">
+                    <div className="mini-grid four-up">
+                      <div>Portfolio revenue: Rs {hostDashboard.performance.portfolioRevenue}</div>
+                      <div>Portfolio cost: Rs {hostDashboard.performance.portfolioCost}</div>
+                      <div>ROI gain: {hostDashboard.performance.portfolioRoiPercent}%</div>
+                      <div>
+                        Best listing ROI:{" "}
+                        {Math.max(
+                          0,
+                          ...hostDashboard.performance.listingPerformance.map(
+                            (item) => item.roiPercent
+                          )
+                        )}
+                        %
+                      </div>
+                    </div>
+                    <div className="chart-grid">
+                      <div className="chart-card">
+                        <p className="eyebrow">Revenue vs Cost</p>
+                        <RoiTrendChart trend={hostDashboard.performance.roiTrend} />
+                      </div>
+                      <div className="chart-card">
+                        <p className="eyebrow">Listing Performance</p>
+                        <ListingPerformanceChart
+                          listings={hostDashboard.performance.listingPerformance}
+                        />
+                      </div>
+                    </div>
+                  </section>
                   <div className="listing-stack">
                     {hostDashboard.listings.map((listing) => (
                       <div key={listing.id} className="listing-item">
@@ -659,6 +850,17 @@ function AdvertiserPage({
             </button>
           </form>
         </article>
+      </section>
+      <section className="visual-gallery compact-gallery">
+        {advertiserVisuals.map((item) => (
+          <article key={item.title} className="image-card mini-image-card">
+            <img src={item.image} alt={item.title} />
+            <div className="image-card-copy">
+              <h3>{item.title}</h3>
+              <p>{item.note}</p>
+            </div>
+          </article>
+        ))}
       </section>
     </main>
   );
@@ -776,6 +978,156 @@ function AdminPage({
         </article>
       </section>
     </main>
+  );
+}
+
+function CuteBadgeRow() {
+  return (
+    <div className="cute-badge-row" aria-hidden="true">
+      <div className="cute-badge">
+        <span className="cute-icon">♡</span>
+        <span>Warm browsing</span>
+      </div>
+      <div className="cute-badge">
+        <span className="cute-icon">✦</span>
+        <span>Happy rentals</span>
+      </div>
+      <div className="cute-badge">
+        <span className="cute-icon">❋</span>
+        <span>Fresh listings</span>
+      </div>
+    </div>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="site-footer">
+      <p>All rights reserved. Copyright reserved with Rento. No unauthorized copyright use is allowed.</p>
+    </footer>
+  );
+}
+
+function RoiTrendChart({
+  trend
+}: {
+  trend: Array<{ label: string; revenue: number; cost: number }>;
+}) {
+  const maxValue = Math.max(
+    1,
+    ...trend.flatMap((item) => [item.revenue, item.cost])
+  );
+
+  return (
+    <div className="chart-wrap">
+      {trend.map((point) => (
+        <div key={point.label} className="trend-col">
+          <div className="trend-bars">
+            <span
+              className="bar revenue-bar"
+              style={{ height: `${(point.revenue / maxValue) * 100}%` }}
+              title={`Revenue Rs ${point.revenue}`}
+            />
+            <span
+              className="bar cost-bar"
+              style={{ height: `${(point.cost / maxValue) * 100}%` }}
+              title={`Cost Rs ${point.cost}`}
+            />
+          </div>
+          <span className="trend-label">{point.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ListingPerformanceChart({
+  listings
+}: {
+  listings: HostDashboard["performance"]["listingPerformance"];
+}) {
+  const maxRoi = Math.max(1, ...listings.map((item) => item.roiPercent));
+
+  return (
+    <div className="listing-chart-list">
+      {listings.map((item) => (
+        <div key={item.productId} className="listing-chart-row">
+          <div className="listing-chart-head">
+            <strong>{item.name}</strong>
+            <span>{item.roiPercent}% ROI</span>
+          </div>
+          <div className="listing-chart-track">
+            <span
+              className="listing-chart-fill"
+              style={{ width: `${(item.roiPercent / maxRoi) * 100}%` }}
+            />
+          </div>
+          <p className="meta-line">
+            {item.views} views | {item.inquiries} inquiries | {item.bookedDays} booked days
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HomeGraphic() {
+  return (
+    <svg viewBox="0 0 420 250" className="scene-graphic" aria-hidden="true">
+      <defs>
+        <linearGradient id="homeGlow" x1="0%" x2="100%" y1="0%" y2="100%">
+          <stop offset="0%" stopColor="#f8d8b8" />
+          <stop offset="100%" stopColor="#d7885c" />
+        </linearGradient>
+      </defs>
+      <rect x="22" y="20" width="376" height="210" rx="28" fill="#fff8f1" />
+      <rect x="58" y="58" width="116" height="132" rx="24" fill="url(#homeGlow)" opacity="0.94" />
+      <circle cx="116" cy="100" r="22" fill="#fff4ea" />
+      <path d="M86 156c12-20 27-30 43-30 20 0 35 11 44 31" fill="none" stroke="#fff8f1" strokeWidth="12" strokeLinecap="round" />
+      <rect x="198" y="54" width="146" height="54" rx="20" fill="#efe0d0" />
+      <rect x="198" y="124" width="62" height="54" rx="18" fill="#ffffff" />
+      <rect x="274" y="124" width="66" height="54" rx="18" fill="#efd4bf" />
+      <text x="212" y="86" fill="#8d4b29" fontSize="13" fontWeight="700">Live rental momentum</text>
+      <text x="209" y="156" fill="#8d4b29" fontSize="12" fontWeight="700">Browse</text>
+      <text x="291" y="156" fill="#8d4b29" fontSize="12" fontWeight="700">Post</text>
+      <circle cx="352" cy="62" r="8" fill="#f8e6d7" />
+      <circle cx="366" cy="80" r="5" fill="#f3d4be" />
+    </svg>
+  );
+}
+
+function ExploreGraphic() {
+  return (
+    <svg viewBox="0 0 360 220" className="scene-graphic" aria-hidden="true">
+      <rect x="18" y="20" width="324" height="180" rx="30" fill="#fff8f1" />
+      <rect x="42" y="48" width="104" height="126" rx="22" fill="#ecc5a8" />
+      <circle cx="90" cy="96" r="22" fill="#fff5eb" />
+      <path d="M70 128l44-40" stroke="#fff6ee" strokeWidth="14" fill="none" strokeLinecap="round" />
+      <rect x="160" y="50" width="140" height="44" rx="18" fill="#f0e0cf" />
+      <rect x="160" y="108" width="58" height="62" rx="18" fill="#ffffff" />
+      <rect x="232" y="108" width="58" height="62" rx="18" fill="#f7d7be" />
+      <text x="174" y="77" fill="#8d4b29" fontSize="13" fontWeight="700">Browse active listings</text>
+      <text x="177" y="145" fill="#8d4b29" fontSize="12" fontWeight="700">Rent</text>
+      <text x="242" y="145" fill="#8d4b29" fontSize="12" fontWeight="700">Repeat</text>
+      <circle cx="304" cy="69" r="6" fill="#f3d4be" />
+    </svg>
+  );
+}
+
+function AdvertiserGraphic() {
+  return (
+    <svg viewBox="0 0 360 220" className="scene-graphic" aria-hidden="true">
+      <rect x="18" y="18" width="324" height="184" rx="30" fill="#fff8f1" />
+      <rect x="42" y="38" width="126" height="146" rx="24" fill="#f0ddca" />
+      <rect x="62" y="58" width="88" height="18" rx="9" fill="#fff" opacity="0.82" />
+      <rect x="62" y="88" width="74" height="18" rx="9" fill="#fff" opacity="0.74" />
+      <rect x="62" y="118" width="60" height="18" rx="9" fill="#fff" opacity="0.66" />
+      <rect x="186" y="38" width="122" height="58" rx="20" fill="#e7b894" />
+      <rect x="186" y="114" width="122" height="64" rx="20" fill="#ffffff" />
+      <text x="197" y="74" fill="#6e341a" fontSize="13" fontWeight="700">Post your product</text>
+      <text x="201" y="151" fill="#8d4b29" fontSize="12" fontWeight="700">Get discovered</text>
+      <circle cx="309" cy="50" r="6" fill="#f8e3d0" />
+    </svg>
   );
 }
 
