@@ -113,13 +113,25 @@ npm run db:seed
 npm install
 ```
 
-2. Start the backend:
+2. Configure environment variables:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+If you want a different local port setup, update:
+
+- `apps/api/.env` → `PORT` and `WEB_ORIGIN`
+- `apps/web/.env` → `VITE_PORT` and `VITE_API_BASE_URL`
+
+3. Start the backend:
 
 ```bash
 npm run dev:api
 ```
 
-3. Start the frontend:
+4. Start the frontend:
 
 ```bash
 npm run dev:web

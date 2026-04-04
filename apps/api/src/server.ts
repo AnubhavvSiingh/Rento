@@ -14,6 +14,7 @@ const app = express();
 const prisma = new PrismaClient();
 const port = Number(process.env.PORT) || 4000;
 const sessionTtlHours = Number(process.env.SESSION_TTL_HOURS ?? 24 * 7);
+const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
 type UserRole = "ADMIN" | "ADVERTISER";
 type AccessStatus = "PENDING" | "APPROVED" | "SUSPENDED";
 
@@ -29,7 +30,7 @@ type AuthenticatedRequest = Request & {
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: [webOrigin],
     credentials: true
   })
 );
