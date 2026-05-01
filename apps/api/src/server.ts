@@ -29,7 +29,14 @@ type AuthenticatedRequest = Request & {
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: (origin, callback) => {
+      if (!origin || /^http:\/\/localhost:517\d$/.test(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origin is not allowed by Rento CORS."));
+    },
     credentials: true
   })
 );
