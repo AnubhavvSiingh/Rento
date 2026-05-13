@@ -1,3 +1,4 @@
+// Seed script to populate demo users, products, and bookings for local development.
 import { config as loadEnv } from "dotenv";
 import {
   PrismaClient,
@@ -66,8 +67,10 @@ const products = [
     owner: "Shaadi Closet",
     ownerId: "usr-shaadi-closet",
     condition: "Verified" as ProductCondition,
-    description:
-      "Hand-embroidered bridal lehenga with dupatta, blouse, and styling consultation for wedding day rentals.",
+    description: [
+      "Hand-embroidered bridal lehenga with dupatta, blouse, and styling consultation",
+      "for wedding day rentals."
+    ].join(" "),
     tags: ["bridal", "lehenga", "luxury", "wedding"],
     status: "APPROVED" as ListingStatus,
     images: [
@@ -86,8 +89,10 @@ const products = [
     owner: "Shaadi Closet",
     ownerId: "usr-shaadi-closet",
     condition: "Excellent" as ProductCondition,
-    description:
-      "A premium occasion gown for receptions, pre-wedding shoots, influencer content, and luxury evening events.",
+    description: [
+      "A premium occasion gown for receptions, pre-wedding shoots, influencer content,",
+      "and luxury evening events."
+    ].join(" "),
     tags: ["reception", "gown", "fashion", "photoshoot"],
     status: "APPROVED" as ListingStatus,
     images: [
@@ -106,8 +111,10 @@ const products = [
     owner: "UrbanNest Host",
     ownerId: "usr-urban-nest",
     condition: "Verified" as ProductCondition,
-    description:
-      "Contemporary three-seater sofa with side poufs, perfect for furnished rentals, photo-ready homes, and short stays.",
+    description: [
+      "Contemporary three-seater sofa with side poufs, perfect for furnished rentals,",
+      "photo-ready homes, and short stays."
+    ].join(" "),
     tags: ["sofa", "living room", "furnished home", "moving city"],
     status: "APPROVED" as ListingStatus,
     images: [
@@ -126,8 +133,10 @@ const products = [
     owner: "UrbanNest Host",
     ownerId: "usr-urban-nest",
     condition: "Good" as ProductCondition,
-    description:
-      "Warm wooden dining setup ideal for family rentals, corporate housing, and temporary furnished apartments.",
+    description: [
+      "Warm wooden dining setup ideal for family rentals, corporate housing, and",
+      "temporary furnished apartments."
+    ].join(" "),
     tags: ["dining", "wood", "family", "hosted apartment"],
     status: "APPROVED" as ListingStatus,
     images: [
@@ -146,8 +155,10 @@ const products = [
     owner: "StayEasy Rentals",
     ownerId: "usr-stayeasy",
     condition: "Verified" as ProductCondition,
-    description:
-      "A practical appliance bundle for hostels, relocations, and short-term apartments that need fast kitchen setup.",
+    description: [
+      "A practical appliance bundle for hostels, relocations, and short-term",
+      "apartments that need fast kitchen setup."
+    ].join(" "),
     tags: ["fridge", "microwave", "relocation", "starter kitchen"],
     status: "PENDING" as ListingStatus,
     images: [
@@ -166,8 +177,10 @@ const products = [
     owner: "StayEasy Rentals",
     ownerId: "usr-stayeasy",
     condition: "Excellent" as ProductCondition,
-    description:
-      "Laundry essentials for serviced homes and long-stay rentals, delivered and installed for the rental period.",
+    description: [
+      "Laundry essentials for serviced homes and long-stay rentals, delivered and",
+      "installed for the rental period."
+    ].join(" "),
     tags: ["washer", "dryer", "family home", "long stay"],
     status: "APPROVED" as ListingStatus,
     images: [
@@ -186,8 +199,10 @@ const products = [
     owner: "Influence Rack",
     ownerId: "usr-influence-rack",
     condition: "Good" as ProductCondition,
-    description:
-      "A compact creator bundle with mirrorless camera, tripod, and lighting gear for reels, campaigns, and events.",
+    description: [
+      "A compact creator bundle with mirrorless camera, tripod, and lighting gear",
+      "for reels, campaigns, and events."
+    ].join(" "),
     tags: ["camera", "creator", "influencer", "lighting"],
     status: "SUSPENDED" as ListingStatus,
     images: [
@@ -206,8 +221,10 @@ const products = [
     owner: "UrbanNest Host",
     ownerId: "usr-urban-nest",
     condition: "Verified" as ProductCondition,
-    description:
-      "Laptop stand, monitor, ergonomic chair, and desk lamp package for hybrid teams and fast-moving professionals.",
+    description: [
+      "Laptop stand, monitor, ergonomic chair, and desk lamp package for hybrid",
+      "teams and fast-moving professionals."
+    ].join(" "),
     tags: ["work from home", "monitor", "chair", "professional"],
     status: "APPROVED" as ListingStatus,
     images: [
@@ -243,7 +260,10 @@ const bookings = [
       shipmentDate: new Date("2026-05-15"),
       rentalStartDate: new Date("2026-05-16"),
       rentalEndDate: new Date("2026-05-18"),
-      deliveryInstructions: "Call before delivery. Bride outfit trial arranged in afternoon.",
+      deliveryInstructions: [
+        "Call before delivery.",
+        "Bride outfit trial arranged in afternoon."
+      ].join(" "),
       conditionPhotoUrl:
         "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=1200&q=80",
       trackingCode: "RENTO-110315"

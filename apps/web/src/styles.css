@@ -53,9 +53,9 @@ button {
 
 .app-shell.theme-dark {
   --app-bg:
-    radial-gradient(circle at 16% 8%, rgba(64, 216, 205, 0.18), transparent 28%),
-    radial-gradient(circle at 90% 18%, rgba(244, 200, 106, 0.12), transparent 30%),
-    linear-gradient(135deg, #061225 0%, #0b2340 48%, #123456 100%);
+    radial-gradient(circle at 16% 8%, rgba(38, 150, 158, 0.12), transparent 28%),
+    radial-gradient(circle at 90% 18%, rgba(140, 108, 60, 0.1), transparent 30%),
+    linear-gradient(135deg, #010309 0%, #030b18 52%, #061427 100%);
   --ink: #f5f7fb;
   --muted: #b9c7d8;
   --accent: #6ee7d8;

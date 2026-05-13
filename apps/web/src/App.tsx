@@ -1,3 +1,4 @@
+// Main UI composition for the Rento web app, including routing and data flows.
 import { AnimatePresence, motion } from "framer-motion";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { SyntheticEvent } from "react";
@@ -101,19 +102,28 @@ const categoryImages: Record<string, string[]> = {
 const homeVisuals: MediaCard[] = [
   {
     title: "Occasion wear that does not sit unused",
-    note: "Premium lehengas, gowns, and statement pieces move from one beautiful day to the next instead of sitting in wardrobes.",
+    note: [
+      "Premium lehengas, gowns, and statement pieces move from one beautiful day",
+      "to the next instead of sitting in wardrobes."
+    ].join(" "),
     image: categoryImages.Ceremony[2],
     accent: "Ceremony"
   },
   {
     title: "Furniture for flexible city living",
-    note: "Moving cities gets easier when comfort arrives ready-made and leaves without stress when plans change.",
+    note: [
+      "Moving cities gets easier when comfort arrives ready-made and leaves without",
+      "stress when plans change."
+    ].join(" "),
     image: categoryImages.Furniture[2],
     accent: "Furniture"
   },
   {
     title: "Everyday essentials that arrive fast",
-    note: "Appliances, electronics, and ceremony must-haves become affordable through access instead of ownership.",
+    note: [
+      "Appliances, electronics, and ceremony must-haves become affordable through",
+      "access instead of ownership."
+    ].join(" "),
     image: categoryImages.Appliances[2],
     accent: "Appliances"
   }
@@ -122,19 +132,28 @@ const homeVisuals: MediaCard[] = [
 const exploreVisuals: MediaCard[] = [
   {
     title: "Browse by moment, not only category",
-    note: "From wedding mornings to furnished move-ins, every listing is organized around why people rent in real life.",
+    note: [
+      "From wedding mornings to furnished move-ins, every listing is organized",
+      "around why people rent in real life."
+    ].join(" "),
     image: categoryImages.Ceremony[1],
     accent: "Ceremony"
   },
   {
     title: "Premium shots make browsing feel effortless",
-    note: "A more editorial product view helps customers imagine the rental before they even open checkout.",
+    note: [
+      "A more editorial product view helps customers imagine the rental before they",
+      "even open checkout."
+    ].join(" "),
     image: categoryImages.Fashion[2],
     accent: "Fashion"
   },
   {
     title: "Fast-moving homes need short-term setup",
-    note: "Beds, workstations, appliances, and sofas can be rented city by city with less upfront cost.",
+    note: [
+      "Beds, workstations, appliances, and sofas can be rented city by city with",
+      "less upfront cost."
+    ].join(" "),
     image: categoryImages.Furniture[1],
     accent: "Furniture"
   }
@@ -143,19 +162,28 @@ const exploreVisuals: MediaCard[] = [
 const advertiserVisuals: MediaCard[] = [
   {
     title: "Photographed listings perform better",
-    note: "Clear, aesthetic product images help renters trust the condition, styling, and value of each listing.",
+    note: [
+      "Clear, aesthetic product images help renters trust the condition, styling,",
+      "and value of each listing."
+    ].join(" "),
     image: categoryImages.Fashion[1],
     accent: "Fashion"
   },
   {
     title: "Homes and events need temporary items",
-    note: "Unused products can become steady rental income with approval, tracking, and live performance visibility.",
+    note: [
+      "Unused products can become steady rental income with approval, tracking,",
+      "and live performance visibility."
+    ].join(" "),
     image: categoryImages.Furniture[0],
     accent: "Furniture"
   },
   {
     title: "Measure income against upkeep",
-    note: "Advertisers can see booking demand, revenue, cost, and ROI from one dashboard built for repeat rentals.",
+    note: [
+      "Advertisers can see booking demand, revenue, cost, and ROI from one",
+      "dashboard built for repeat rentals."
+    ].join(" "),
     image: categoryImages.Electronics[1],
     accent: "Electronics"
   }
@@ -164,25 +192,37 @@ const advertiserVisuals: MediaCard[] = [
 const categoryShowcases: MediaCard[] = [
   {
     title: "Wedding and ceremony wear",
-    note: "Lehengas, gowns, sherwanis, and premium styling accessories for one-time moments.",
+    note: [
+      "Lehengas, gowns, sherwanis, and premium styling accessories for one-time",
+      "moments."
+    ].join(" "),
     image: categoryImages.Ceremony[0],
     accent: "Ceremony"
   },
   {
     title: "Ready-to-live furniture",
-    note: "Sofas, dining sets, beds, and desks for relocations, rentals, and flexible homes.",
+    note: [
+      "Sofas, dining sets, beds, and desks for relocations, rentals, and flexible",
+      "homes."
+    ].join(" "),
     image: categoryImages.Furniture[0],
     accent: "Furniture"
   },
   {
     title: "Appliances for short stays",
-    note: "Fridges, laundry, microwaves, and kitchen essentials without heavy upfront buying.",
+    note: [
+      "Fridges, laundry, microwaves, and kitchen essentials without heavy upfront",
+      "buying."
+    ].join(" "),
     image: categoryImages.Appliances[0],
     accent: "Appliances"
   },
   {
     title: "Creator and work gear",
-    note: "Cameras, monitors, and productivity bundles for campaigns, gigs, and temporary setups.",
+    note: [
+      "Cameras, monitors, and productivity bundles for campaigns, gigs, and",
+      "temporary setups."
+    ].join(" "),
     image: categoryImages.Electronics[0],
     accent: "Electronics"
   }
@@ -190,31 +230,46 @@ const categoryShowcases: MediaCard[] = [
 
 const homeVideoFeature: VideoFeature = {
   title: "See how modern renting feels inside Rento",
-  note: "From occasion wear to apartment essentials, customers can move through inspiration, trust, checkout, and tracking without friction.",
+  note: [
+    "From occasion wear to apartment essentials, customers can move through",
+    "inspiration, trust, checkout, and tracking without friction."
+  ].join(" "),
   poster: categoryImages.Ceremony[0],
   video: "https://assets.mixkit.co/videos/preview/mixkit-young-woman-browsing-clothes-in-a-boutique-4626-large.mp4"
 };
 
 const exploreVideoFeature: VideoFeature = {
   title: "Browse rentals like a premium marketplace",
-  note: "A calm discovery experience, expressive visuals, and fast filtering make customers stay longer and convert better.",
+  note: [
+    "A calm discovery experience, expressive visuals, and fast filtering make",
+    "customers stay longer and convert better."
+  ].join(" "),
   poster: categoryImages.Furniture[0],
   video: "https://assets.mixkit.co/videos/preview/mixkit-modern-living-room-interior-44783-large.mp4"
 };
 
 const homeTestimonials: Testimonial[] = [
   {
-    quote: "I rented my ceremony lehenga instead of buying one for a single day, and the experience felt premium from start to finish.",
+    quote: [
+      "I rented my ceremony lehenga instead of buying one for a single day, and",
+      "the experience felt premium from start to finish."
+    ].join(" "),
     name: "Ananya",
     role: "Bride in Delhi"
   },
   {
-    quote: "Moving into Bengaluru for six months was easier because I could rent a sofa, desk, and appliances in one place.",
+    quote: [
+      "Moving into Bengaluru for six months was easier because I could rent a",
+      "sofa, desk, and appliances in one place."
+    ].join(" "),
     name: "Rahul",
     role: "Consultant relocating cities"
   },
   {
-    quote: "Posting unused furniture on Rento turned storage into revenue. The approval and tracking flow made it feel reliable.",
+    quote: [
+      "Posting unused furniture on Rento turned storage into revenue. The approval",
+      "and tracking flow made it feel reliable."
+    ].join(" "),
     name: "Mitali",
     role: "Advertiser host"
   }
@@ -1524,9 +1579,16 @@ function CustomerDashboardPage({
                   <span>{booking.shippingDetails.conditionPhotoUrl || "No photo URL added"}</span>
                 </div>
               </div>
-              {booking.status === "DELIVERED" || booking.status === "RETURN_PICKUP" || booking.status === "COMPLETED" ? (
-                <form className="stack-form review-form" onSubmit={(event) => onSubmitReview(event, booking)}>
-                  <p className="panel-title">{review ? "Update your review" : "Rate this rental"}</p>
+              {booking.status === "DELIVERED" ||
+              booking.status === "RETURN_PICKUP" ||
+              booking.status === "COMPLETED" ? (
+                <form
+                  className="stack-form review-form"
+                  onSubmit={(event) => onSubmitReview(event, booking)}
+                >
+                  <p className="panel-title">
+                    {review ? "Update your review" : "Rate this rental"}
+                  </p>
                   <select name="rating" defaultValue={review?.rating ?? 5}>
                     <option value="5">5 - Excellent</option>
                     <option value="4">4 - Good</option>
@@ -1534,7 +1596,11 @@ function CustomerDashboardPage({
                     <option value="2">2 - Needs improvement</option>
                     <option value="1">1 - Poor</option>
                   </select>
-                  <textarea name="comment" placeholder="How was the rental experience?" defaultValue={review?.comment} />
+                  <textarea
+                    name="comment"
+                    placeholder="How was the rental experience?"
+                    defaultValue={review?.comment}
+                  />
                   <textarea
                     name="conditionNote"
                     placeholder="Return condition note or damage report"
@@ -1858,7 +1924,11 @@ function AdminPage({
                   <button
                     key={card.key}
                     type="button"
-                    className={adminFilter === card.key ? "filter-summary-card active" : "filter-summary-card"}
+                    className={
+                      adminFilter === card.key
+                        ? "filter-summary-card active"
+                        : "filter-summary-card"
+                    }
                     onClick={() => onFilterChange(card.key)}
                   >
                     <span>{card.label}</span>
@@ -1892,13 +1962,25 @@ function AdminPage({
                         <td>{user.email}</td>
                         <td>{user.accessStatus}</td>
                         <td className="action-row">
-                          <button type="button" className="tiny-button" onClick={() => void onUpdateAccess(user.id, "APPROVED")}>
+                          <button
+                            type="button"
+                            className="tiny-button"
+                            onClick={() => void onUpdateAccess(user.id, "APPROVED")}
+                          >
                             Accept
                           </button>
-                          <button type="button" className="tiny-button muted" onClick={() => void onUpdateAccess(user.id, "PENDING")}>
+                          <button
+                            type="button"
+                            className="tiny-button muted"
+                            onClick={() => void onUpdateAccess(user.id, "PENDING")}
+                          >
                             Hold
                           </button>
-                          <button type="button" className="tiny-button warning" onClick={() => void onUpdateAccess(user.id, "SUSPENDED")}>
+                          <button
+                            type="button"
+                            className="tiny-button warning"
+                            onClick={() => void onUpdateAccess(user.id, "SUSPENDED")}
+                          >
                             Suspend
                           </button>
                         </td>
@@ -1947,13 +2029,25 @@ function AdminPage({
                     <span className="badge">{product.status}</span>
                   </div>
                   <div className="action-row">
-                    <button type="button" className="tiny-button" onClick={() => onUpdateProductStatus(product.id, "APPROVED")}>
+                    <button
+                      type="button"
+                      className="tiny-button"
+                      onClick={() => onUpdateProductStatus(product.id, "APPROVED")}
+                    >
                       Approve
                     </button>
-                    <button type="button" className="tiny-button muted" onClick={() => onUpdateProductStatus(product.id, "PENDING")}>
+                    <button
+                      type="button"
+                      className="tiny-button muted"
+                      onClick={() => onUpdateProductStatus(product.id, "PENDING")}
+                    >
                       Hold
                     </button>
-                    <button type="button" className="tiny-button warning" onClick={() => onUpdateProductStatus(product.id, "SUSPENDED")}>
+                    <button
+                      type="button"
+                      className="tiny-button warning"
+                      onClick={() => onUpdateProductStatus(product.id, "SUSPENDED")}
+                    >
                       Suspend
                     </button>
                   </div>
@@ -1976,7 +2070,11 @@ function AdminPage({
                       <button
                         key={status}
                         type="button"
-                        className={booking.status === status ? "tiny-button active-chip" : "tiny-button"}
+                        className={
+                          booking.status === status
+                            ? "tiny-button active-chip"
+                            : "tiny-button"
+                        }
                         onClick={() => onUpdateBookingStatus(booking.id, status)}
                       >
                         {formatStatus(status)}
