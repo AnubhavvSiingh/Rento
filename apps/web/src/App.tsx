@@ -1,18 +1,33 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createAdvertiserProduct,
+  createBooking as createBookingRequest,
   getAdminDashboard,
   getAdvertiserApprovalStatus,
   getAuthenticatedUser,
+  getCustomerDashboard,
+  getCustomerProfile,
   getHostDashboard,
   getMarketplace,
+  loginCustomerAccount,
   loginAccount,
+  registerCustomerAccount,
   registerAdvertiserAccount,
+  saveReview,
+  updateBookingStatus as updateBookingStatusRequest,
   updateAdvertiserAccessStatus,
+  updateProductStatus as updateProductStatusRequest,
   type AdminDashboard,
+  type Booking,
+  type BookingStatus,
+  type CustomerProfile,
   type HostDashboard,
+  type ListingStatus,
+  type NotificationItem,
   type Overview,
   type Product,
+  type Review,
+  type ShippingDetails,
   type User
 } from "./api";
 
@@ -28,89 +43,8 @@ type Route =
 
 type CustomerAuthMode = "signup" | "signin";
 type AdminFilter = "ALL" | "APPROVED" | "PENDING" | "SUSPENDED";
-type ListingStatus = "PENDING" | "APPROVED" | "SUSPENDED";
-type BookingStatus =
-  | "PLACED"
-  | "PACKED"
-  | "OUT_FOR_DELIVERY"
-  | "DELIVERED"
-  | "RETURN_PICKUP"
-  | "COMPLETED";
 
-type CustomerProfile = {
-  fullName: string;
-  email: string;
-  phone: string;
-};
-
-type StoredCustomerAccount = CustomerProfile & {
-  password: string;
-};
-
-type ShippingDetails = {
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  shipmentDate: string;
-  rentalStartDate: string;
-  rentalEndDate: string;
-  deliveryInstructions: string;
-  conditionPhotoUrl: string;
-  paymentMethod: string;
-  paymentReference: string;
-};
-
-type Booking = {
-  id: string;
-  productId: string;
-  productName: string;
-  productCategory: string;
-  dailyRate: number;
-  deposit: number;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  shippingDetails: ShippingDetails;
-  status: BookingStatus;
-  paymentStatus: "PAID" | "REFUNDED";
-  trackingCode: string;
-  totalAmount: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type ProductEnhancement = {
-  status: ListingStatus;
-  images: string[];
-};
-
-type Review = {
-  id: string;
-  productId: string;
-  productName: string;
-  customerEmail: string;
-  rating: number;
-  comment: string;
-  conditionNote: string;
-  createdAt: string;
-};
-
-type NotificationItem = {
-  id: string;
-  email: string;
-  title: string;
-  message: string;
-  createdAt: string;
-};
-
-const customerAccountsKey = "rento_customer_accounts";
-const customerEmailKey = "rento_current_customer_email";
-const bookingsKey = "rento_bookings";
-const productEnhancementsKey = "rento_product_enhancements";
-const reviewsKey = "rento_reviews";
-const notificationsKey = "rento_notifications";
+const customerTokenKey = "rento_customer_token";
 
 const advertiserCategories = [
   "Furniture",
@@ -200,6 +134,9 @@ export default function App() {
   const [adminToken, setAdminToken] = useState<string | null>(
     localStorage.getItem("rento_admin_token")
   );
+  const [customerToken, setCustomerToken] = useState<string | null>(
+    localStorage.getItem(customerTokenKey)
+  );
   const [hostDashboard, setHostDashboard] = useState<HostDashboard | null>(null);
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null);
   const [statusMessage, setStatusMessage] = useState("Choose how you want to enter Rento.");
@@ -217,17 +154,9 @@ export default function App() {
   const [advertiserRegistrationStatus, setAdvertiserRegistrationStatus] = useState<
     User["accessStatus"] | null
   >(null);
-  const [customerAccounts, setCustomerAccounts] = useState<StoredCustomerAccount[]>(() =>
-    readStorage(customerAccountsKey, [])
-  );
-  const [bookings, setBookings] = useState<Booking[]>(() => readStorage(bookingsKey, []));
-  const [productEnhancements, setProductEnhancements] = useState<
-    Record<string, ProductEnhancement>
-  >(() => readStorage(productEnhancementsKey, {}));
-  const [reviews, setReviews] = useState<Review[]>(() => readStorage(reviewsKey, []));
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() =>
-    readStorage(notificationsKey, [])
-  );
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   useEffect(() => {
     void loadMarketplace();
@@ -241,22 +170,6 @@ export default function App() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
-
-  useEffect(() => {
-    const email = localStorage.getItem(customerEmailKey);
-    if (!email) {
-      return;
-    }
-
-    const account = customerAccounts.find((item) => item.email === email);
-    if (account) {
-      setCustomerProfile({
-        fullName: account.fullName,
-        email: account.email,
-        phone: account.phone
-      });
-    }
-  }, [customerAccounts]);
 
   useEffect(() => {
     if (advertiserToken) {
@@ -283,6 +196,19 @@ export default function App() {
   }, [adminToken]);
 
   useEffect(() => {
+    if (customerToken) {
+      localStorage.setItem(customerTokenKey, customerToken);
+      void loadCustomerSession(customerToken);
+    } else {
+      localStorage.removeItem(customerTokenKey);
+      setCustomerProfile(null);
+      setBookings([]);
+      setReviews([]);
+      setNotifications([]);
+    }
+  }, [customerToken]);
+
+  useEffect(() => {
     if (registeredAdvertiserEmail) {
       localStorage.setItem("rento_registered_advertiser_email", registeredAdvertiserEmail);
       void refreshAdvertiserApprovalStatus(registeredAdvertiserEmail);
@@ -291,12 +217,6 @@ export default function App() {
       setAdvertiserRegistrationStatus(null);
     }
   }, [registeredAdvertiserEmail]);
-
-  useEffect(() => persistStorage(customerAccountsKey, customerAccounts), [customerAccounts]);
-  useEffect(() => persistStorage(bookingsKey, bookings), [bookings]);
-  useEffect(() => persistStorage(productEnhancementsKey, productEnhancements), [productEnhancements]);
-  useEffect(() => persistStorage(reviewsKey, reviews), [reviews]);
-  useEffect(() => persistStorage(notificationsKey, notifications), [notifications]);
 
   async function loadMarketplace() {
     try {
@@ -363,6 +283,28 @@ export default function App() {
     } catch (error) {
       console.error(error);
       setAdminDashboard(null);
+    }
+  }
+
+  async function loadCustomerSession(token: string) {
+    try {
+      const [profileResponse, dashboardResponse] = await Promise.all([
+        getCustomerProfile(token),
+        getCustomerDashboard(token)
+      ]);
+
+      if (!profileResponse.ok || !dashboardResponse.ok) {
+        setCustomerToken(null);
+        return;
+      }
+
+      setCustomerProfile(profileResponse.data.customer);
+      setBookings(dashboardResponse.data.bookings);
+      setReviews(dashboardResponse.data.reviews);
+      setNotifications(dashboardResponse.data.notifications);
+    } catch (error) {
+      console.error(error);
+      setCustomerToken(null);
     }
   }
 
@@ -446,10 +388,6 @@ export default function App() {
     }
 
     const form = new FormData(event.currentTarget);
-    const imageUrls = String(form.get("imageUrls") ?? "")
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean);
     const payload = {
       name: String(form.get("name") ?? ""),
       category: String(form.get("category") ?? ""),
@@ -457,7 +395,8 @@ export default function App() {
       dailyRate: Number(form.get("dailyRate") ?? 0),
       deposit: Number(form.get("deposit") ?? 0),
       description: String(form.get("description") ?? ""),
-      tags: String(form.get("tags") ?? "")
+      tags: String(form.get("tags") ?? ""),
+      imageUrls: String(form.get("imageUrls") ?? "")
     };
 
     const response = await createAdvertiserProduct(advertiserToken, payload);
@@ -469,13 +408,6 @@ export default function App() {
     );
 
     if (response.ok && data.product) {
-      setProductEnhancements((current) => ({
-        ...current,
-        [data.product!.id]: {
-          status: "PENDING",
-          images: imageUrls.length > 0 ? imageUrls : getCategoryImages(data.product!.category)
-        }
-      }));
       event.currentTarget.reset();
       await Promise.all([loadMarketplace(), loadHostDashboard(advertiserToken)]);
     }
@@ -513,7 +445,7 @@ export default function App() {
     setStatusMessage(`Continue your rental for "${product.name}".`);
   }
 
-  function submitCustomerAuth(event: FormEvent<HTMLFormElement>) {
+  async function submitCustomerAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
 
@@ -521,37 +453,30 @@ export default function App() {
     const password = String(form.get("password") ?? "");
 
     if (customerAuthMode === "signup") {
-      const profile = {
+      const response = await registerCustomerAccount({
         fullName: String(form.get("fullName") ?? ""),
         email,
-        phone: String(form.get("phone") ?? "")
-      };
-
-      const existingAccount = customerAccounts.find((item) => item.email === email);
-      if (existingAccount) {
-        setStatusMessage("This customer email already exists. Please sign in instead.");
-        return;
-      }
-
-      setCustomerAccounts((current) => [...current, { ...profile, password }]);
-      setCustomerProfile(profile);
-      localStorage.setItem(customerEmailKey, email);
-    } else {
-      const existingAccount = customerAccounts.find(
-        (item) => item.email === email && item.password === password
-      );
-
-      if (!existingAccount) {
-        setStatusMessage("Invalid customer email or password.");
-        return;
-      }
-
-      setCustomerProfile({
-        fullName: existingAccount.fullName,
-        email: existingAccount.email,
-        phone: existingAccount.phone
+        phone: String(form.get("phone") ?? ""),
+        password
       });
-      localStorage.setItem(customerEmailKey, email);
+
+      if (!response.ok || !response.data.token || !response.data.customer) {
+        setStatusMessage(response.data.message ?? "Unable to create customer account.");
+        return;
+      }
+
+      setCustomerProfile(response.data.customer);
+      setCustomerToken(response.data.token);
+    } else {
+      const response = await loginCustomerAccount({ email, password });
+
+      if (!response.ok || !response.data.token || !response.data.customer) {
+        setStatusMessage(response.data.message ?? "Invalid customer email or password.");
+        return;
+      }
+
+      setCustomerProfile(response.data.customer);
+      setCustomerToken(response.data.token);
     }
 
     navigate(selectedProduct ? "customer-shipping" : "customer-dashboard");
@@ -562,11 +487,11 @@ export default function App() {
     );
   }
 
-  function submitShipping(event: FormEvent<HTMLFormElement>) {
+  async function submitShipping(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
 
-    if (!selectedProduct || !customerProfile) {
+    if (!selectedProduct || !customerProfile || !customerToken) {
       setStatusMessage("Please choose a product and sign in before checkout.");
       navigate("explore");
       return;
@@ -587,123 +512,86 @@ export default function App() {
       paymentReference:
         String(form.get("paymentReference") ?? "") || `PAY-${Date.now().toString().slice(-6)}`
     };
-    const days = getRentalDays(details.rentalStartDate, details.rentalEndDate);
-    const totalAmount = days * selectedProduct.dailyRate + selectedProduct.deposit;
-    const booking: Booking = {
-      id: createId("ord"),
+    const response = await createBookingRequest(customerToken, {
       productId: selectedProduct.id,
-      productName: selectedProduct.name,
-      productCategory: selectedProduct.category,
-      dailyRate: selectedProduct.dailyRate,
-      deposit: selectedProduct.deposit,
-      customerName: customerProfile.fullName,
-      customerEmail: customerProfile.email,
-      customerPhone: customerProfile.phone,
-      shippingDetails: details,
-      status: "PLACED",
-      paymentStatus: "PAID",
-      trackingCode: `RENTO-${Date.now().toString().slice(-7)}`,
-      totalAmount,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+      ...details
+    });
 
-    setShippingDetails(details);
-    setCurrentBooking(booking);
-    setBookings((current) => [booking, ...current]);
-    addNotification(
-      customerProfile.email,
-      "Order placed",
-      `Your rental order for ${selectedProduct.name} is confirmed. We will email the shipment tracking link shortly.`
-    );
-    navigate("customer-confirmation");
-    setStatusMessage(
-      "Your order has been placed. We will email you the shipment tracking link shortly."
-    );
-  }
-
-  function updateProductStatus(productId: string, status: ListingStatus) {
-    const product = products.find((item) => item.id === productId);
-    setProductEnhancements((current) => ({
-      ...current,
-      [productId]: {
-        status,
-        images: current[productId]?.images ?? getCategoryImages(product?.category ?? "Furniture")
-      }
-    }));
-    setStatusMessage(`Listing ${status.toLowerCase()} successfully.`);
-  }
-
-  function updateBookingStatus(bookingId: string, status: BookingStatus) {
-    const bookingToUpdate = bookings.find((booking) => booking.id === bookingId);
-
-    if (bookingToUpdate) {
-      addNotification(
-        bookingToUpdate.customerEmail,
-        "Shipment update",
-        `${bookingToUpdate.productName} is now ${formatStatus(status).toLowerCase()}.`
-      );
+    if (!response.ok || !response.data.booking) {
+      setStatusMessage(response.data.message ?? "Unable to place order.");
+      return;
     }
 
-    setBookings((current) =>
-      current.map((booking) =>
-        booking.id === bookingId
-          ? {
-          ...booking,
-          status,
-          updatedAt: new Date().toISOString()
-            }
-          : booking
-      )
-    );
-    setStatusMessage(`Booking moved to ${formatStatus(status)}.`);
+    setShippingDetails(details);
+    setCurrentBooking(response.data.booking);
+    await loadCustomerSession(customerToken);
+    navigate("customer-confirmation");
+    setStatusMessage(response.data.message ?? "Your order has been placed.");
   }
 
-  function submitReview(event: FormEvent<HTMLFormElement>, booking: Booking) {
+  async function updateProductStatus(productId: string, status: ListingStatus) {
+    if (!adminToken) {
+      return;
+    }
+
+    const response = await updateProductStatusRequest(adminToken, productId, status);
+    setStatusMessage(response.data.message ?? `Listing ${status.toLowerCase()} successfully.`);
+
+    if (response.ok) {
+      await Promise.all([loadMarketplace(), loadAdminDashboard(adminToken)]);
+    }
+  }
+
+  async function updateBookingStatus(bookingId: string, status: BookingStatus) {
+    if (!adminToken) {
+      setStatusMessage("Only admin can update shipment status.");
+      return;
+    }
+
+    const response = await updateBookingStatusRequest(adminToken, bookingId, status);
+    setStatusMessage(response.data.message ?? `Booking moved to ${formatStatus(status)}.`);
+
+    if (response.ok) {
+      await loadAdminDashboard(adminToken);
+      if (customerToken) {
+        await loadCustomerSession(customerToken);
+      }
+      if (advertiserToken) {
+        await loadHostDashboard(advertiserToken);
+      }
+    }
+  }
+
+  async function submitReview(event: FormEvent<HTMLFormElement>, booking: Booking) {
     event.preventDefault();
+    if (!customerToken) {
+      setStatusMessage("Please sign in as a customer to review this rental.");
+      return;
+    }
+
     const form = new FormData(event.currentTarget);
-    const existingReview = reviews.find((item) => item.id === booking.id);
-    const review: Review = {
-      id: booking.id,
-      productId: booking.productId,
-      productName: booking.productName,
-      customerEmail: booking.customerEmail,
+    const response = await saveReview(customerToken, booking.id, {
       rating: Number(form.get("rating") ?? 5),
       comment: String(form.get("comment") ?? ""),
-      conditionNote: String(form.get("conditionNote") ?? ""),
-      createdAt: new Date().toISOString()
-    };
+      conditionNote: String(form.get("conditionNote") ?? "")
+    });
 
-    setReviews((current) =>
-      existingReview ? current.map((item) => (item.id === review.id ? review : item)) : [review, ...current]
-    );
-    setStatusMessage("Review saved. This helps future renters trust the product.");
-    event.currentTarget.reset();
+    setStatusMessage(response.data.message ?? "Review saved.");
+    if (response.ok) {
+      await Promise.all([loadCustomerSession(customerToken), loadMarketplace()]);
+      event.currentTarget.reset();
+    }
   }
 
   function logoutCustomer() {
-    localStorage.removeItem(customerEmailKey);
-    setCustomerProfile(null);
+    setCustomerToken(null);
     setStatusMessage("Customer signed out.");
     navigate("home");
   }
 
-  function addNotification(email: string, title: string, message: string) {
-    setNotifications((current) => [
-      {
-        id: createId("ntf"),
-        email,
-        title,
-        message,
-        createdAt: new Date().toISOString()
-      },
-      ...current
-    ]);
-  }
-
   const approvedProducts = useMemo(
-    () => products.filter((product) => getListingStatus(product, productEnhancements) === "APPROVED"),
-    [products, productEnhancements]
+    () => products.filter((product) => product.status === "APPROVED"),
+    [products]
   );
 
   const filteredAdvertisers = useMemo(() => {
@@ -715,26 +603,7 @@ export default function App() {
     });
   }, [adminDashboard, adminFilter, adminSearch]);
 
-  const customerBookings = useMemo(
-    () =>
-      customerProfile
-        ? bookings.filter((booking) => booking.customerEmail === customerProfile.email)
-        : [],
-    [bookings, customerProfile]
-  );
-
-  const advertiserBookings = useMemo(() => {
-    if (!advertiserUser) {
-      return [];
-    }
-
-    const ownProductNames = new Set(
-      products
-        .filter((product) => product.owner === advertiserUser.name)
-        .map((product) => product.name)
-    );
-    return bookings.filter((booking) => ownProductNames.has(booking.productName));
-  }, [advertiserUser, bookings, products]);
+  const advertiserBookings = hostDashboard?.bookings ?? [];
 
   return (
     <div className="app-shell">
@@ -747,8 +616,6 @@ export default function App() {
           <ExplorePage
             products={approvedProducts}
             overview={overview}
-            reviews={reviews}
-            productEnhancements={productEnhancements}
             onRent={beginRentFlow}
             selectedProduct={selectedProduct}
           />
@@ -781,15 +648,12 @@ export default function App() {
         {route === "customer-dashboard" && (
           <CustomerDashboardPage
             customerProfile={customerProfile}
-            bookings={customerBookings}
-            notifications={notifications.filter(
-              (item) => item.email === customerProfile?.email
-            )}
+            bookings={bookings}
+            notifications={notifications}
             reviews={reviews}
             onGoToAuth={() => navigate("customer-auth")}
             onExplore={() => navigate("explore")}
             onLogout={logoutCustomer}
-            onStatusChange={updateBookingStatus}
             onSubmitReview={submitReview}
           />
         )}
@@ -800,7 +664,6 @@ export default function App() {
             statusMessage={statusMessage}
             registeredAdvertiserEmail={registeredAdvertiserEmail}
             advertiserRegistrationStatus={advertiserRegistrationStatus}
-            productEnhancements={productEnhancements}
             bookings={advertiserBookings}
             onRegister={registerAdvertiser}
             onRefreshApproval={() =>
@@ -821,9 +684,8 @@ export default function App() {
             adminSearch={adminSearch}
             adminFilter={adminFilter}
             productSearch={productSearch}
-            products={products}
-            bookings={bookings}
-            productEnhancements={productEnhancements}
+            products={adminDashboard?.products ?? products}
+            bookings={adminDashboard?.bookings ?? []}
             statusMessage={statusMessage}
             onSearchChange={setAdminSearch}
             onFilterChange={setAdminFilter}
@@ -940,15 +802,11 @@ function HomePage({
 function ExplorePage({
   products,
   overview,
-  reviews,
-  productEnhancements,
   selectedProduct,
   onRent
 }: {
   products: Product[];
   overview: Overview | null;
-  reviews: Review[];
-  productEnhancements: Record<string, ProductEnhancement>;
   selectedProduct: Product | null;
   onRent: (product: Product) => void;
 }) {
@@ -1040,7 +898,7 @@ function ExplorePage({
       <section className="cards cards-wide">
         {filteredProducts.map((product) => (
           <article key={product.id} className="card product-card">
-            <ProductImages product={product} enhancements={productEnhancements} />
+            <ProductImages product={product} />
             <div className="product-card-body">
               <span className="badge">{product.category}</span>
               <h3>{product.name}</h3>
@@ -1049,7 +907,7 @@ function ExplorePage({
               <p className="meta-line">
                 {product.city} | Deposit Rs {product.deposit}
               </p>
-              <RatingSummary productId={product.id} reviews={reviews} />
+              <RatingSummary product={product} />
               <div className="card-footer">
                 <button type="button" className="primary-button" onClick={() => onRent(product)}>
                   {selectedProduct?.id === product.id ? "Continue Rental" : "Rent this item"}
@@ -1300,7 +1158,6 @@ function CustomerDashboardPage({
   onGoToAuth,
   onExplore,
   onLogout,
-  onStatusChange,
   onSubmitReview
 }: {
   customerProfile: CustomerProfile | null;
@@ -1310,8 +1167,7 @@ function CustomerDashboardPage({
   onGoToAuth: () => void;
   onExplore: () => void;
   onLogout: () => void;
-  onStatusChange: (bookingId: string, status: BookingStatus) => void;
-  onSubmitReview: (event: FormEvent<HTMLFormElement>, booking: Booking) => void;
+  onSubmitReview: (event: FormEvent<HTMLFormElement>, booking: Booking) => Promise<void>;
 }) {
   if (!customerProfile) {
     return (
@@ -1374,7 +1230,7 @@ function CustomerDashboardPage({
 
       <section className="booking-stack">
         {bookings.map((booking) => {
-          const review = reviews.find((item) => item.id === booking.id);
+          const review = reviews.find((item) => item.bookingId === booking.id);
           return (
             <article key={booking.id} className="booking-card">
               <div className="booking-card-head">
@@ -1385,14 +1241,9 @@ function CustomerDashboardPage({
                     {booking.trackingCode} | {formatStatus(booking.status)} | Rs {booking.totalAmount}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => onStatusChange(booking.id, getNextStatus(booking.status))}
-                  disabled={booking.status === "COMPLETED"}
-                >
-                  {booking.status === "COMPLETED" ? "Completed" : "Move to next status"}
-                </button>
+                <span className="status-banner compact">
+                  {booking.status === "COMPLETED" ? "Completed" : "Tracked by Rento admin"}
+                </span>
               </div>
               <StatusTrack status={booking.status} />
               <div className="booking-detail-grid">
@@ -1463,7 +1314,6 @@ function AdvertiserPage({
   statusMessage,
   registeredAdvertiserEmail,
   advertiserRegistrationStatus,
-  productEnhancements,
   bookings,
   onRegister,
   onRefreshApproval,
@@ -1476,7 +1326,6 @@ function AdvertiserPage({
   statusMessage: string;
   registeredAdvertiserEmail: string | null;
   advertiserRegistrationStatus: User["accessStatus"] | null;
-  productEnhancements: Record<string, ProductEnhancement>;
   bookings: Booking[];
   onRegister: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onRefreshApproval: () => Promise<void>;
@@ -1602,7 +1451,7 @@ function AdvertiserPage({
                       <strong>{listing.name}</strong>
                       <span>
                         {listing.city} | Rs {listing.dailyRate}/day |{" "}
-                        {getListingStatus(listing, productEnhancements)}
+                        {listing.status}
                       </span>
                     </div>
                   ))}
@@ -1680,7 +1529,6 @@ function AdminPage({
   productSearch,
   products,
   bookings,
-  productEnhancements,
   statusMessage,
   onSearchChange,
   onFilterChange,
@@ -1699,7 +1547,6 @@ function AdminPage({
   productSearch: string;
   products: Product[];
   bookings: Booking[];
-  productEnhancements: Record<string, ProductEnhancement>;
   statusMessage: string;
   onSearchChange: (value: string) => void;
   onFilterChange: (filter: AdminFilter) => void;
@@ -1840,13 +1687,13 @@ function AdminPage({
             <div className="moderation-list">
               {filteredProducts.map((product) => (
                 <article key={product.id} className="moderation-item">
-                  <ProductImages product={product} enhancements={productEnhancements} />
+                  <ProductImages product={product} />
                   <div>
                     <h4>{product.name}</h4>
                     <p className="meta-line">
                       {product.owner ?? "Advertiser"} | {product.city} | Rs {product.dailyRate}/day
                     </p>
-                    <span className="badge">{getListingStatus(product, productEnhancements)}</span>
+                    <span className="badge">{product.status}</span>
                   </div>
                   <div className="action-row">
                     <button type="button" className="tiny-button" onClick={() => onUpdateProductStatus(product.id, "APPROVED")}>
@@ -1897,13 +1744,11 @@ function AdminPage({
 }
 
 function ProductImages({
-  product,
-  enhancements
+  product
 }: {
   product: Product;
-  enhancements: Record<string, ProductEnhancement>;
 }) {
-  const images = getProductImages(product, enhancements);
+  const images = getProductImages(product);
 
   return (
     <div className="product-image-shell">
@@ -1917,18 +1762,12 @@ function ProductImages({
   );
 }
 
-function RatingSummary({ productId, reviews }: { productId: string; reviews: Review[] }) {
-  const productReviews = reviews.filter((item) => item.productId === productId);
-  const average =
-    productReviews.length === 0
-      ? 0
-      : productReviews.reduce((total, item) => total + item.rating, 0) / productReviews.length;
-
+function RatingSummary({ product }: { product: Product }) {
   return (
     <p className="meta-line">
-      {productReviews.length === 0
+      {product.reviewCount === 0
         ? "No reviews yet"
-        : `${average.toFixed(1)}/5 from ${productReviews.length} reviews`}
+        : `${product.averageRating.toFixed(1)}/5 from ${product.reviewCount} reviews`}
     </p>
   );
 }
@@ -2032,44 +1871,12 @@ function ListingPerformanceChart({
   );
 }
 
-function readStorage<T>(key: string, fallback: T): T {
-  const value = localStorage.getItem(key);
-  if (!value) {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function persistStorage<T>(key: string, value: T) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-function createId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-}
-
 function getCategoryImages(category: string) {
   return categoryImages[category] ?? categoryImages.Furniture;
 }
 
-function getProductImages(
-  product: Product,
-  enhancements: Record<string, ProductEnhancement>
-) {
-  const customImages = enhancements[product.id]?.images ?? [];
-  return customImages.length > 0 ? customImages : getCategoryImages(product.category);
-}
-
-function getListingStatus(
-  product: Product,
-  enhancements: Record<string, ProductEnhancement>
-): ListingStatus {
-  return enhancements[product.id]?.status ?? "APPROVED";
+function getProductImages(product: Product) {
+  return product.images.length > 0 ? product.images : getCategoryImages(product.category);
 }
 
 function getRentalDays(startDate: string, endDate: string) {
@@ -2084,11 +1891,6 @@ function getRentalDays(startDate: string, endDate: string) {
   }
 
   return Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-}
-
-function getNextStatus(status: BookingStatus): BookingStatus {
-  const index = bookingStatuses.indexOf(status);
-  return bookingStatuses[Math.min(index + 1, bookingStatuses.length - 1)];
 }
 
 function formatStatus(status: string) {

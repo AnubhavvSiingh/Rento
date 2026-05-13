@@ -37,6 +37,26 @@ enum AuthProvider {
   GOOGLE
 }
 
+enum ListingStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum BookingStatus {
+  PLACED
+  PACKED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RETURN_PICKUP
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PAID
+  REFUNDED
+}
+
 model Product {
   id          String           @id
   name        String
@@ -45,15 +65,35 @@ model Product {
   dailyRate   Int
   deposit     Int
   owner       String
+  ownerId     String?
   condition   ProductCondition
   description String
   tags        String[]
+  status      ListingStatus    @default(APPROVED)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+  ownerUser   User?            @relation("AdvertiserProducts", fields: [ownerId], references: [id], onDelete: SetNull)
+  images      ProductImage[]
+  bookings    Booking[]
+  reviews     Review[]
 
   @@index([city])
   @@index([category])
+  @@index([status])
+  @@index([ownerId])
   @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  url       String
+  sortOrder Int      @default(0)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("product_images")
 }
 
 model User {
@@ -67,6 +107,7 @@ model User {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   sessions     Session[]
+  products     Product[]      @relation("AdvertiserProducts")
 
   @@index([role, accessStatus])
   @@map("users")
@@ -82,4 +123,121 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+model Customer {
+  id           String            @id @default(cuid())
+  fullName     String
+  email        String            @unique
+  phone        String
+  passwordHash String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  sessions     CustomerSession[]
+  bookings     Booking[]
+  reviews      Review[]
+  notifications Notification[]
+
+  @@map("customers")
+}
+
+model CustomerSession {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_sessions")
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  productId   String
+  customerId  String
+  dailyRate   Int
+  deposit     Int
+  totalAmount Int
+  status      BookingStatus @default(PLACED)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  customer    Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payment     Payment?
+  shipment    Shipment?
+  review      Review?
+
+  @@index([productId])
+  @@index([customerId])
+  @@index([status])
+  @@map("bookings")
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  bookingId String        @unique
+  method    String
+  reference String
+  amount    Int
+  status    PaymentStatus @default(PAID)
+  createdAt DateTime      @default(now())
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Shipment {
+  id                   String   @id @default(cuid())
+  bookingId            String   @unique
+  addressLine1         String
+  addressLine2         String?
+  city                 String
+  state                String
+  postalCode           String
+  shipmentDate         DateTime
+  rentalStartDate      DateTime
+  rentalEndDate        DateTime
+  deliveryInstructions String?
+  conditionPhotoUrl    String?
+  trackingCode         String   @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  booking              Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([city])
+  @@map("shipments")
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  productId     String
+  customerId    String
+  bookingId     String   @unique
+  rating        Int
+  comment       String
+  conditionNote String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  booking       Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([customerId])
+  @@map("reviews")
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  customerId String
+  title      String
+  message    String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("notifications")
 }

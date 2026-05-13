@@ -1,4 +1,14 @@
-export const apiBaseUrl = "http://localhost:4000";
+const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string> }).env;
+export const apiBaseUrl = viteEnv?.VITE_API_BASE_URL ?? "http://localhost:4000";
+
+export type ListingStatus = "PENDING" | "APPROVED" | "SUSPENDED";
+export type BookingStatus =
+  | "PLACED"
+  | "PACKED"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "RETURN_PICKUP"
+  | "COMPLETED";
 
 export type Product = {
   id: string;
@@ -9,6 +19,11 @@ export type Product = {
   deposit: number;
   description: string;
   owner?: string;
+  ownerId?: string | null;
+  status: ListingStatus;
+  images: string[];
+  averageRating: number;
+  reviewCount: number;
 };
 
 export type Overview = {
@@ -33,6 +48,68 @@ export type User = {
   createdAt: string;
 };
 
+export type CustomerProfile = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+};
+
+export type ShippingDetails = {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  shipmentDate: string;
+  rentalStartDate: string;
+  rentalEndDate: string;
+  deliveryInstructions: string;
+  conditionPhotoUrl: string;
+  paymentMethod: string;
+  paymentReference: string;
+};
+
+export type Booking = {
+  id: string;
+  productId: string;
+  productName: string;
+  productCategory: string;
+  dailyRate: number;
+  deposit: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingDetails: ShippingDetails;
+  status: BookingStatus;
+  paymentStatus: "PAID" | "REFUNDED";
+  trackingCode: string;
+  totalAmount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Review = {
+  id: string;
+  bookingId: string;
+  productId: string;
+  productName: string;
+  customerEmail: string;
+  rating: number;
+  comment: string;
+  conditionNote: string;
+  createdAt: string;
+};
+
+export type NotificationItem = {
+  id: string;
+  title: string;
+  message: string;
+  readAt?: string | null;
+  createdAt: string;
+};
+
 export type HostDashboard = {
   summary: {
     totalListings: number;
@@ -43,6 +120,7 @@ export type HostDashboard = {
   };
   actions: string[];
   listings: Product[];
+  bookings: Booking[];
   performance: {
     portfolioRevenue: number;
     portfolioCost: number;
@@ -73,6 +151,15 @@ export type AdminDashboard = {
     suspended: number;
   };
   advertisers: User[];
+  products: Product[];
+  bookings: Booking[];
+};
+
+export type CustomerDashboard = {
+  customer: CustomerProfile;
+  bookings: Booking[];
+  notifications: NotificationItem[];
+  reviews: Review[];
 };
 
 export type ApiResponse<T> = {
@@ -90,9 +177,21 @@ export type AuthResponse = ApiMessage & {
   user?: User;
 };
 
+export type CustomerAuthResponse = ApiMessage & {
+  token?: string;
+  customer?: CustomerProfile;
+};
+
 export type RegisterAdvertiserPayload = {
   name: string;
   email: string;
+  password: string;
+};
+
+export type RegisterCustomerPayload = {
+  fullName: string;
+  email: string;
+  phone: string;
   password: string;
 };
 
@@ -109,6 +208,17 @@ export type AdvertiserProductPayload = {
   deposit: number;
   description: string;
   tags: string;
+  imageUrls: string;
+};
+
+export type BookingPayload = ShippingDetails & {
+  productId: string;
+};
+
+export type ReviewPayload = {
+  rating: number;
+  comment: string;
+  conditionNote: string;
 };
 
 export async function getMarketplace() {
@@ -167,6 +277,50 @@ export function loginAccount(payload: LoginPayload) {
   });
 }
 
+export function registerCustomerAccount(payload: RegisterCustomerPayload) {
+  return apiRequest<CustomerAuthResponse>("/api/customers/register", {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function loginCustomerAccount(payload: LoginPayload) {
+  return apiRequest<CustomerAuthResponse>("/api/customers/login", {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function getCustomerProfile(token: string) {
+  return apiRequest<{ customer: CustomerProfile }>("/api/customers/me", {
+    headers: authHeaders(token)
+  });
+}
+
+export function getCustomerDashboard(token: string) {
+  return apiRequest<CustomerDashboard>("/api/customers/dashboard", {
+    headers: authHeaders(token)
+  });
+}
+
+export function createBooking(token: string, payload: BookingPayload) {
+  return apiRequest<ApiMessage & { booking?: Booking }>("/api/bookings", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function saveReview(token: string, bookingId: string, payload: ReviewPayload) {
+  return apiRequest<ApiMessage & { review?: Review }>(`/api/bookings/${bookingId}/review`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload)
+  });
+}
+
 export function createAdvertiserProduct(
   token: string,
   payload: AdvertiserProductPayload
@@ -187,6 +341,30 @@ export function updateAdvertiserAccessStatus(
     method: "PATCH",
     headers: authHeaders(token),
     body: JSON.stringify({ accessStatus })
+  });
+}
+
+export function updateProductStatus(
+  token: string,
+  productId: string,
+  status: ListingStatus
+) {
+  return apiRequest<ApiMessage & { product?: Product }>(`/api/admin/products/${productId}/status`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ status })
+  });
+}
+
+export function updateBookingStatus(
+  token: string,
+  bookingId: string,
+  status: BookingStatus
+) {
+  return apiRequest<ApiMessage & { booking?: Booking }>(`/api/admin/bookings/${bookingId}/status`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ status })
   });
 }
 
