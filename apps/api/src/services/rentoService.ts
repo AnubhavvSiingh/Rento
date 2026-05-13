@@ -50,6 +50,7 @@ export async function getOverview() {
 
 export async function listProducts() {
   const products = await prisma.product.findMany({
+    where: { status: "APPROVED" },
     include: productIncludes(),
     orderBy: { name: "asc" }
   });
@@ -226,6 +227,26 @@ export async function createBooking(
 
   if (!product || product.status !== "APPROVED") {
     throw new ApiError(404, "This product is not available for rental.");
+  }
+
+  const overlappingBookings = await prisma.booking.count({
+    where: {
+      productId: product.id,
+      status: { not: "COMPLETED" },
+      shipment: {
+        is: {
+          rentalStartDate: { lte: input.shipment.rentalEndDate },
+          rentalEndDate: { gte: input.shipment.rentalStartDate }
+        }
+      }
+    }
+  });
+
+  if (overlappingBookings > 0) {
+    throw new ApiError(
+      409,
+      "This product is already booked for the selected dates. Please choose different dates."
+    );
   }
 
   const days = getRentalDays(input.shipment.rentalStartDate, input.shipment.rentalEndDate);
@@ -464,7 +485,8 @@ export async function getAdminDashboard() {
       totalAdvertisers: advertisers.length,
       approved: advertisers.filter((user) => user.accessStatus === "APPROVED").length,
       pending: advertisers.filter((user) => user.accessStatus === "PENDING").length,
-      suspended: advertisers.filter((user) => user.accessStatus === "SUSPENDED").length
+      suspended: advertisers.filter((user) => user.accessStatus === "SUSPENDED").length,
+      pendingListings: products.filter((product) => product.status === "PENDING").length
     },
     advertisers: advertisers.map(sanitizeUser),
     products: products.map(mapProduct),

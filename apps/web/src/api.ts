@@ -20,6 +20,8 @@ export type Product = {
   description: string;
   owner?: string;
   ownerId?: string | null;
+  condition?: string;
+  tags?: string[];
   status: ListingStatus;
   images: string[];
   averageRating: number;

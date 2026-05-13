@@ -67,6 +67,17 @@ export function assertProduct(body: unknown) {
 
 export function assertBooking(body: unknown) {
   const value = objectBody(body);
+  const shipmentDate = dateField(value, "shipmentDate");
+  const rentalStartDate = dateField(value, "rentalStartDate");
+  const rentalEndDate = dateField(value, "rentalEndDate");
+
+  if (rentalEndDate < rentalStartDate) {
+    throw new ApiError(400, "rentalEndDate must be the same as or after rentalStartDate.");
+  }
+
+  if (shipmentDate > rentalStartDate) {
+    throw new ApiError(400, "shipmentDate should be on or before rentalStartDate.");
+  }
 
   return {
     productId: stringField(value, "productId"),
@@ -76,9 +87,9 @@ export function assertBooking(body: unknown) {
       city: stringField(value, "city"),
       state: stringField(value, "state"),
       postalCode: stringField(value, "postalCode"),
-      shipmentDate: dateField(value, "shipmentDate"),
-      rentalStartDate: dateField(value, "rentalStartDate"),
-      rentalEndDate: dateField(value, "rentalEndDate"),
+      shipmentDate,
+      rentalStartDate,
+      rentalEndDate,
       deliveryInstructions: optionalStringField(value, "deliveryInstructions"),
       conditionPhotoUrl: optionalStringField(value, "conditionPhotoUrl")
     },

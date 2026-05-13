@@ -52,4 +52,20 @@ const booking = assertBooking({
 assert.equal(booking.productId, "prd-1");
 assert.equal(booking.payment.method, "UPI");
 
+assert.throws(
+  () =>
+    assertBooking({
+      productId: "prd-2",
+      addressLine1: "Line 1",
+      city: "Delhi",
+      state: "Delhi",
+      postalCode: "110001",
+      shipmentDate: "2026-05-12",
+      rentalStartDate: "2026-05-11",
+      rentalEndDate: "2026-05-10",
+      paymentMethod: "UPI"
+    }),
+  /rentalEndDate must be/
+);
+
 console.info("Validator tests passed.");

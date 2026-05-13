@@ -1,4 +1,6 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { SyntheticEvent } from "react";
 import {
   createAdvertiserProduct,
   createBooking as createBookingRequest,
@@ -43,8 +45,13 @@ type Route =
 
 type CustomerAuthMode = "signup" | "signin";
 type AdminFilter = "ALL" | "APPROVED" | "PENDING" | "SUSPENDED";
+type ThemeMode = "dark" | "light";
+type MediaCard = { title: string; note: string; image: string; accent?: string };
+type Testimonial = { quote: string; name: string; role: string };
+type VideoFeature = { title: string; note: string; poster: string; video: string };
 
 const customerTokenKey = "rento_customer_token";
+const themeKey = "rento_theme";
 
 const advertiserCategories = [
   "Furniture",
@@ -65,65 +72,157 @@ const bookingStatuses: BookingStatus[] = [
 
 const categoryImages: Record<string, string[]> = {
   Furniture: [
-    "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80",
-    "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=900&q=80"
+    "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80"
   ],
   Appliances: [
-    "https://images.unsplash.com/photo-1586208958839-06c17cacdf08?auto=format&fit=crop&w=900&q=80",
-    "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=900&q=80"
+    "https://images.unsplash.com/photo-1586208958839-06c17cacdf08?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?auto=format&fit=crop&w=1200&q=80"
   ],
   Fashion: [
-    "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=80",
-    "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=900&q=80"
+    "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=80"
   ],
   Ceremony: [
-    "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=80",
-    "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80"
+    "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=1200&q=80"
   ],
   Electronics: [
-    "https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=900&q=80",
-    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80"
+    "https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80"
   ]
 };
 
-const homeVisuals = [
+const homeVisuals: MediaCard[] = [
   {
     title: "Occasion wear that does not sit unused",
-    note: "Let customers rent premium apparel for ceremonies, shoots, and special days.",
-    image: categoryImages.Ceremony[0]
+    note: "Premium lehengas, gowns, and statement pieces move from one beautiful day to the next instead of sitting in wardrobes.",
+    image: categoryImages.Ceremony[2],
+    accent: "Ceremony"
   },
   {
-    title: "Furniture for flexible homes",
-    note: "City movers can live well without buying heavy pieces they may later abandon.",
-    image: categoryImages.Furniture[0]
+    title: "Furniture for flexible city living",
+    note: "Moving cities gets easier when comfort arrives ready-made and leaves without stress when plans change.",
+    image: categoryImages.Furniture[2],
+    accent: "Furniture"
   },
   {
-    title: "Essentials ready for short stays",
-    note: "Appliances and daily-use items become affordable through shared access.",
-    image: categoryImages.Appliances[0]
+    title: "Everyday essentials that arrive fast",
+    note: "Appliances, electronics, and ceremony must-haves become affordable through access instead of ownership.",
+    image: categoryImages.Appliances[2],
+    accent: "Appliances"
   }
 ];
 
-const advertiserVisuals = [
+const exploreVisuals: MediaCard[] = [
+  {
+    title: "Browse by moment, not only category",
+    note: "From wedding mornings to furnished move-ins, every listing is organized around why people rent in real life.",
+    image: categoryImages.Ceremony[1],
+    accent: "Ceremony"
+  },
+  {
+    title: "Premium shots make browsing feel effortless",
+    note: "A more editorial product view helps customers imagine the rental before they even open checkout.",
+    image: categoryImages.Fashion[2],
+    accent: "Fashion"
+  },
+  {
+    title: "Fast-moving homes need short-term setup",
+    note: "Beds, workstations, appliances, and sofas can be rented city by city with less upfront cost.",
+    image: categoryImages.Furniture[1],
+    accent: "Furniture"
+  }
+];
+
+const advertiserVisuals: MediaCard[] = [
   {
     title: "Photographed listings perform better",
-    note: "Clear, aesthetic product images help renters decide faster.",
-    image: categoryImages.Fashion[1]
+    note: "Clear, aesthetic product images help renters trust the condition, styling, and value of each listing.",
+    image: categoryImages.Fashion[1],
+    accent: "Fashion"
   },
   {
     title: "Homes and events need temporary items",
-    note: "Unused products can become steady rental income with approval and tracking.",
-    image: categoryImages.Furniture[1]
+    note: "Unused products can become steady rental income with approval, tracking, and live performance visibility.",
+    image: categoryImages.Furniture[0],
+    accent: "Furniture"
   },
   {
     title: "Measure income against upkeep",
-    note: "Advertisers can see booking demand, revenue, cost, and ROI from one dashboard.",
-    image: categoryImages.Electronics[1]
+    note: "Advertisers can see booking demand, revenue, cost, and ROI from one dashboard built for repeat rentals.",
+    image: categoryImages.Electronics[1],
+    accent: "Electronics"
+  }
+];
+
+const categoryShowcases: MediaCard[] = [
+  {
+    title: "Wedding and ceremony wear",
+    note: "Lehengas, gowns, sherwanis, and premium styling accessories for one-time moments.",
+    image: categoryImages.Ceremony[0],
+    accent: "Ceremony"
+  },
+  {
+    title: "Ready-to-live furniture",
+    note: "Sofas, dining sets, beds, and desks for relocations, rentals, and flexible homes.",
+    image: categoryImages.Furniture[0],
+    accent: "Furniture"
+  },
+  {
+    title: "Appliances for short stays",
+    note: "Fridges, laundry, microwaves, and kitchen essentials without heavy upfront buying.",
+    image: categoryImages.Appliances[0],
+    accent: "Appliances"
+  },
+  {
+    title: "Creator and work gear",
+    note: "Cameras, monitors, and productivity bundles for campaigns, gigs, and temporary setups.",
+    image: categoryImages.Electronics[0],
+    accent: "Electronics"
+  }
+];
+
+const homeVideoFeature: VideoFeature = {
+  title: "See how modern renting feels inside Rento",
+  note: "From occasion wear to apartment essentials, customers can move through inspiration, trust, checkout, and tracking without friction.",
+  poster: categoryImages.Ceremony[0],
+  video: "https://assets.mixkit.co/videos/preview/mixkit-young-woman-browsing-clothes-in-a-boutique-4626-large.mp4"
+};
+
+const exploreVideoFeature: VideoFeature = {
+  title: "Browse rentals like a premium marketplace",
+  note: "A calm discovery experience, expressive visuals, and fast filtering make customers stay longer and convert better.",
+  poster: categoryImages.Furniture[0],
+  video: "https://assets.mixkit.co/videos/preview/mixkit-modern-living-room-interior-44783-large.mp4"
+};
+
+const homeTestimonials: Testimonial[] = [
+  {
+    quote: "I rented my ceremony lehenga instead of buying one for a single day, and the experience felt premium from start to finish.",
+    name: "Ananya",
+    role: "Bride in Delhi"
+  },
+  {
+    quote: "Moving into Bengaluru for six months was easier because I could rent a sofa, desk, and appliances in one place.",
+    name: "Rahul",
+    role: "Consultant relocating cities"
+  },
+  {
+    quote: "Posting unused furniture on Rento turned storage into revenue. The approval and tracking flow made it feel reliable.",
+    name: "Mitali",
+    role: "Advertiser host"
   }
 ];
 
 export default function App() {
   const [route, setRoute] = useState<Route>(getRouteFromHash());
+  const [theme, setTheme] = useState<ThemeMode>(() => readInitialTheme());
   const [overview, setOverview] = useState<Overview | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [advertiserUser, setAdvertiserUser] = useState<User | null>(null);
@@ -161,6 +260,11 @@ export default function App() {
   useEffect(() => {
     void loadMarketplace();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(themeKey, theme);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -604,100 +708,116 @@ export default function App() {
   }, [adminDashboard, adminFilter, adminSearch]);
 
   const advertiserBookings = hostDashboard?.bookings ?? [];
+  const nextTheme = theme === "dark" ? "light" : "dark";
 
   return (
-    <div className="app-shell">
-      <TopBar route={route} navigate={navigate} hasCustomer={Boolean(customerProfile)} />
-      <div key={route} className="page-stage">
-        {route === "home" && (
-          <HomePage overview={overview} navigate={navigate} statusMessage={statusMessage} />
-        )}
-        {route === "explore" && (
-          <ExplorePage
-            products={approvedProducts}
-            overview={overview}
-            onRent={beginRentFlow}
-            selectedProduct={selectedProduct}
-          />
-        )}
-        {route === "customer-auth" && (
-          <CustomerAuthPage
-            mode={customerAuthMode}
-            product={selectedProduct}
-            onModeChange={setCustomerAuthMode}
-            onSubmit={submitCustomerAuth}
-          />
-        )}
-        {route === "customer-shipping" && (
-          <CustomerShippingPage
-            product={selectedProduct}
-            customerProfile={customerProfile}
-            onSubmit={submitShipping}
-          />
-        )}
-        {route === "customer-confirmation" && (
-          <CustomerConfirmationPage
-            product={selectedProduct}
-            customerProfile={customerProfile}
-            shippingDetails={shippingDetails}
-            booking={currentBooking}
-            onExploreAgain={() => navigate("explore")}
-            onDashboard={() => navigate("customer-dashboard")}
-          />
-        )}
-        {route === "customer-dashboard" && (
-          <CustomerDashboardPage
-            customerProfile={customerProfile}
-            bookings={bookings}
-            notifications={notifications}
-            reviews={reviews}
-            onGoToAuth={() => navigate("customer-auth")}
-            onExplore={() => navigate("explore")}
-            onLogout={logoutCustomer}
-            onSubmitReview={submitReview}
-          />
-        )}
-        {route === "advertiser" && (
-          <AdvertiserPage
-            advertiserUser={advertiserUser}
-            hostDashboard={hostDashboard}
-            statusMessage={statusMessage}
-            registeredAdvertiserEmail={registeredAdvertiserEmail}
-            advertiserRegistrationStatus={advertiserRegistrationStatus}
-            bookings={advertiserBookings}
-            onRegister={registerAdvertiser}
-            onRefreshApproval={() =>
-              registeredAdvertiserEmail
-                ? refreshAdvertiserApprovalStatus(registeredAdvertiserEmail)
-                : Promise.resolve()
-            }
-            onLogin={login}
-            onLogout={() => setAdvertiserToken(null)}
-            onSubmitProduct={submitProduct}
-          />
-        )}
-        {route === "admin" && (
-          <AdminPage
-            adminUser={adminUser}
-            adminDashboard={adminDashboard}
-            filteredAdvertisers={filteredAdvertisers}
-            adminSearch={adminSearch}
-            adminFilter={adminFilter}
-            productSearch={productSearch}
-            products={adminDashboard?.products ?? products}
-            bookings={adminDashboard?.bookings ?? []}
-            statusMessage={statusMessage}
-            onSearchChange={setAdminSearch}
-            onFilterChange={setAdminFilter}
-            onProductSearchChange={setProductSearch}
-            onLogin={login}
-            onLogout={() => setAdminToken(null)}
-            onUpdateAccess={updateAdvertiserAccess}
-            onUpdateProductStatus={updateProductStatus}
-            onUpdateBookingStatus={updateBookingStatus}
-          />
-        )}
-      </div>
+    <div className={`app-shell theme-${theme}`}>
+      <TopBar
+        route={route}
+        navigate={navigate}
+        hasCustomer={Boolean(customerProfile)}
+        theme={theme}
+        onToggleTheme={() => setTheme(nextTheme)}
+      />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={route}
+          className="page-stage"
+          initial={{ opacity: 0, y: 26 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -18 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {route === "home" && (
+            <HomePage overview={overview} navigate={navigate} statusMessage={statusMessage} />
+          )}
+          {route === "explore" && (
+            <ExplorePage
+              products={approvedProducts}
+              overview={overview}
+              onRent={beginRentFlow}
+              selectedProduct={selectedProduct}
+            />
+          )}
+          {route === "customer-auth" && (
+            <CustomerAuthPage
+              mode={customerAuthMode}
+              product={selectedProduct}
+              onModeChange={setCustomerAuthMode}
+              onSubmit={submitCustomerAuth}
+            />
+          )}
+          {route === "customer-shipping" && (
+            <CustomerShippingPage
+              product={selectedProduct}
+              customerProfile={customerProfile}
+              onSubmit={submitShipping}
+            />
+          )}
+          {route === "customer-confirmation" && (
+            <CustomerConfirmationPage
+              product={selectedProduct}
+              customerProfile={customerProfile}
+              shippingDetails={shippingDetails}
+              booking={currentBooking}
+              onExploreAgain={() => navigate("explore")}
+              onDashboard={() => navigate("customer-dashboard")}
+            />
+          )}
+          {route === "customer-dashboard" && (
+            <CustomerDashboardPage
+              customerProfile={customerProfile}
+              bookings={bookings}
+              notifications={notifications}
+              reviews={reviews}
+              onGoToAuth={() => navigate("customer-auth")}
+              onExplore={() => navigate("explore")}
+              onLogout={logoutCustomer}
+              onSubmitReview={submitReview}
+            />
+          )}
+          {route === "advertiser" && (
+            <AdvertiserPage
+              advertiserUser={advertiserUser}
+              hostDashboard={hostDashboard}
+              statusMessage={statusMessage}
+              registeredAdvertiserEmail={registeredAdvertiserEmail}
+              advertiserRegistrationStatus={advertiserRegistrationStatus}
+              bookings={advertiserBookings}
+              onRegister={registerAdvertiser}
+              onRefreshApproval={() =>
+                registeredAdvertiserEmail
+                  ? refreshAdvertiserApprovalStatus(registeredAdvertiserEmail)
+                  : Promise.resolve()
+              }
+              onLogin={login}
+              onLogout={() => setAdvertiserToken(null)}
+              onSubmitProduct={submitProduct}
+            />
+          )}
+          {route === "admin" && (
+            <AdminPage
+              adminUser={adminUser}
+              adminDashboard={adminDashboard}
+              filteredAdvertisers={filteredAdvertisers}
+              adminSearch={adminSearch}
+              adminFilter={adminFilter}
+              productSearch={productSearch}
+              products={adminDashboard?.products ?? products}
+              bookings={adminDashboard?.bookings ?? []}
+              statusMessage={statusMessage}
+              onSearchChange={setAdminSearch}
+              onFilterChange={setAdminFilter}
+              onProductSearchChange={setProductSearch}
+              onLogin={login}
+              onLogout={() => setAdminToken(null)}
+              onUpdateAccess={updateAdvertiserAccess}
+              onUpdateProductStatus={updateProductStatus}
+              onUpdateBookingStatus={updateBookingStatus}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
       <Footer />
     </div>
   );
@@ -706,11 +826,15 @@ export default function App() {
 function TopBar({
   route,
   navigate,
-  hasCustomer
+  hasCustomer,
+  theme,
+  onToggleTheme
 }: {
   route: Route;
   navigate: (route: Route) => void;
   hasCustomer: boolean;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
 }) {
   return (
     <header className="topbar">
@@ -732,6 +856,18 @@ function TopBar({
             Are you Admin
           </button>
         )}
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={onToggleTheme}
+          aria-pressed={theme === "dark"}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          <span className="theme-toggle-icon" aria-hidden="true">
+            {theme === "dark" ? "D" : "L"}
+          </span>
+          <span>{theme === "dark" ? "Dark" : "Light"}</span>
+        </button>
       </nav>
     </header>
   );
@@ -748,13 +884,20 @@ function HomePage({
 }) {
   return (
     <main className="page-shell">
-      <section className="hero hero-home">
-        <div className="hero-copy">
+      <section className="hero hero-home premium-hero">
+        <motion.div
+          className="hero-copy"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: 0.55 }}
+        >
           <p className="eyebrow">Main Page</p>
-          <h1>Rento</h1>
+          <h1>Rent beautifully. Live lightly. Earn from what you already own.</h1>
           <p className="hero-text">
-            A rental marketplace where customers book useful items, advertisers turn
-            unused products into income, and admin keeps access and listings trustworthy.
+            Rento turns premium apparel, furniture, appliances, and creator gear into a
+            trusted rental marketplace for modern city life. Customers browse faster,
+            advertisers earn from underused inventory, and every experience feels more
+            polished than buying for one-time use.
           </p>
           <div className="main-actions">
             <button type="button" className="primary-button" onClick={() => navigate("advertiser")}>
@@ -765,34 +908,96 @@ function HomePage({
             </button>
           </div>
           <div className="story-ribbon">
-            <span>Book online</span>
-            <span>Track shipment</span>
-            <span>Return with condition notes</span>
+            <span>Premium listings</span>
+            <span>Shipment tracking</span>
+            <span>Calendar-ready rentals</span>
+            <span>Trusted approvals</span>
           </div>
+          <div className="trust-row">
+            <TrustChip label="Average savings" value={`${overview?.stats.averageSavingsPercent ?? 61}%`} />
+            <TrustChip label="Approved hosts" value={`${overview?.stats.activeHosts ?? 0}+`} />
+            <TrustChip label="Rental-ready cities" value={`${overview?.stats.cities ?? 0}`} />
+          </div>
+        </motion.div>
+        <div className="hero-stack">
+          <motion.div
+            className="hero-panel media-panel"
+            initial={{ opacity: 0, y: 32 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.16, duration: 0.58 }}
+          >
+            <FeatureVideoCard feature={homeVideoFeature} />
+          </motion.div>
+          <motion.div
+            className="hero-panel"
+            initial={{ opacity: 0, y: 32 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.24, duration: 0.58 }}
+          >
+            <p className="panel-title">Live platform snapshot</p>
+            <div className="stat-strip">
+              <StatCard label="Advertisements" value={overview?.stats.listedProducts ?? "-"} />
+              <StatCard label="Advertisers" value={overview?.stats.activeHosts ?? "-"} />
+              <StatCard label="Cities" value={overview?.stats.cities ?? "-"} />
+            </div>
+            <p className="status-banner">{statusMessage}</p>
+          </motion.div>
         </div>
-        <div className="hero-panel">
-          <p className="panel-title">Live platform snapshot</p>
-          <div className="stat-strip">
-            <div className="stat-box">
-              <strong>{overview?.stats.listedProducts ?? "-"}</strong>
-              <span className="stat-label">Advertisements</span>
-            </div>
-            <div className="stat-box">
-              <strong>{overview?.stats.activeHosts ?? "-"}</strong>
-              <span className="stat-label">Advertisers</span>
-            </div>
-            <div className="stat-box">
-              <strong>{overview?.stats.cities ?? "-"}</strong>
-              <span className="stat-label">Cities</span>
+      </section>
+
+      <section className="feature-band">
+        <article className="feature-copy">
+          <p className="eyebrow">Why people come back</p>
+          <h3>Renting feels easier when the experience looks premium and stays practical.</h3>
+          <p className="section-text">
+            Rento is built around the reasons people actually rent today: moving cities,
+            furnishing short stays, styling one-time ceremonies, creating content, and avoiding
+            high upfront ownership costs. Clear visuals, transparent pricing, and tracked
+            delivery make the journey feel calm and trustworthy.
+          </p>
+          <ul className="list-block">
+            <li>Discover premium listings with real product visuals.</li>
+            <li>Compare daily rent, deposit, and city availability in one place.</li>
+            <li>Move from signup to shipment confirmation without friction.</li>
+          </ul>
+        </article>
+        <article className="visual-frame editorial-frame">
+          <div className="savings-panel">
+            <p className="eyebrow">Savings snapshot</p>
+            <strong>Buy less. Experience more.</strong>
+            <div className="mini-grid">
+              <div>
+                <span>Wedding wear saved</span>
+                <strong>up to Rs 48k</strong>
+              </div>
+              <div>
+                <span>Move-in setup saved</span>
+                <strong>up to Rs 32k</strong>
+              </div>
+              <div>
+                <span>Creator gear saved</span>
+                <strong>up to Rs 18k</strong>
+              </div>
             </div>
           </div>
-          <p className="status-banner">{statusMessage}</p>
-        </div>
+        </article>
+      </section>
+
+      <section className="visual-gallery">
+        {categoryShowcases.map((item) => (
+          <ImageCard key={item.title} item={item} />
+        ))}
       </section>
 
       <section className="visual-gallery">
         {homeVisuals.map((item) => (
           <ImageCard key={item.title} item={item} />
+        ))}
+      </section>
+
+      <section className="story-grid">
+        {homeTestimonials.map((item) => (
+          <TestimonialCard key={item.name} item={item} />
         ))}
       </section>
     </main>
@@ -847,7 +1052,7 @@ function ExplorePage({
       <section className="section-header">
         <div>
           <p className="eyebrow">Customer Landing Page</p>
-          <h2>Rent what you need, only for as long as you need it.</h2>
+          <h2>Explore rentals that feel curated, useful, and ready for real life.</h2>
           <p className="section-text">
             {overview?.positioning ??
               "Browse approved listings, compare deposits, book dates, and track delivery."}
@@ -856,6 +1061,26 @@ function ExplorePage({
         <div className="status-banner compact">
           {filteredProducts.length} approved listings ready to rent
         </div>
+      </section>
+
+      <section className="feature-band explore-band">
+        <article className="feature-copy">
+          <p className="eyebrow">Explore better</p>
+          <h3>Find apparel, furniture, appliances, and creator gear with a smoother discovery flow.</h3>
+          <p className="section-text">
+            Customers come to Rento for stylish ceremony outfits, flexible home setups, and
+            short-term essentials. Better visuals, clearer categories, and cleaner browsing help
+            more people stay, compare, and place rentals.
+          </p>
+          <div className="cute-badge-row">
+            <span className="cute-badge"><span className="cute-icon">01</span> Search across categories</span>
+            <span className="cute-badge"><span className="cute-icon">02</span> Review deposits before checkout</span>
+            <span className="cute-badge"><span className="cute-icon">03</span> Track every shipment after booking</span>
+          </div>
+        </article>
+        <article className="hero-panel media-panel">
+          <FeatureVideoCard feature={exploreVideoFeature} />
+        </article>
       </section>
 
       <section className="filter-panel" aria-label="Search and filters">
@@ -895,9 +1120,20 @@ function ExplorePage({
         </select>
       </section>
 
+      <section className="visual-gallery compact-gallery">
+        {exploreVisuals.map((item) => (
+          <ImageCard key={item.title} item={item} />
+        ))}
+      </section>
+
       <section className="cards cards-wide">
         {filteredProducts.map((product) => (
-          <article key={product.id} className="card product-card">
+          <motion.article
+            key={product.id}
+            className="card product-card"
+            whileHover={{ y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
             <ProductImages product={product} />
             <div className="product-card-body">
               <span className="badge">{product.category}</span>
@@ -905,8 +1141,17 @@ function ExplorePage({
               <p className="price">Rs {product.dailyRate}/day</p>
               <p>{product.description}</p>
               <p className="meta-line">
-                {product.city} | Deposit Rs {product.deposit}
+                {product.city} | Deposit Rs {product.deposit} | {product.condition ?? "Verified"}
               </p>
+              {product.tags && product.tags.length > 0 && (
+                <div className="tag-row">
+                  {product.tags.slice(0, 3).map((tag) => (
+                    <span key={tag} className="tag-pill">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
               <RatingSummary product={product} />
               <div className="card-footer">
                 <button type="button" className="primary-button" onClick={() => onRent(product)}>
@@ -914,7 +1159,7 @@ function ExplorePage({
                 </button>
               </div>
             </div>
-          </article>
+          </motion.article>
         ))}
         {filteredProducts.length === 0 && (
           <article className="card">
@@ -922,6 +1167,12 @@ function ExplorePage({
             <p>Try a wider city, category, or price range.</p>
           </article>
         )}
+      </section>
+
+      <section className="story-grid">
+        {categoryShowcases.slice(0, 2).map((item) => (
+          <ImageCard key={`explore-${item.title}`} item={item} />
+        ))}
       </section>
     </main>
   );
@@ -1752,13 +2003,43 @@ function ProductImages({
 
   return (
     <div className="product-image-shell">
-      <img src={images[0]} alt={product.name} />
+      <img src={images[0]} alt={product.name} onError={handleImageError(product.category)} />
       <div className="image-strip">
         {images.slice(0, 3).map((image) => (
           <span key={image} className="image-thumb" style={{ backgroundImage: `url(${image})` }} />
         ))}
       </div>
     </div>
+  );
+}
+
+function TrustChip({ label, value }: { label: string; value: string | number }) {
+  return (
+    <motion.div
+      className="trust-chip"
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.4 }}
+      transition={{ duration: 0.35 }}
+    >
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </motion.div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <motion.div
+      className="stat-box"
+      initial={{ opacity: 0, scale: 0.96 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, amount: 0.5 }}
+      transition={{ duration: 0.35 }}
+    >
+      <strong>{value}</strong>
+      <span className="stat-label">{label}</span>
+    </motion.div>
   );
 }
 
@@ -1789,16 +2070,67 @@ function StatusTrack({ status }: { status: BookingStatus }) {
 function ImageCard({
   item
 }: {
-  item: { title: string; note: string; image: string };
+  item: MediaCard;
 }) {
   return (
-    <article className="image-card">
-      <img src={item.image} alt={item.title} />
+    <motion.article
+      className="image-card"
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.4 }}
+      whileHover={{ y: -6 }}
+    >
+      <img src={item.image} alt={item.title} onError={handleImageError(item.accent ?? "Furniture")} />
       <div className="image-card-copy">
+        {item.accent && <span className="badge warm-badge">{item.accent}</span>}
         <h3>{item.title}</h3>
         <p>{item.note}</p>
       </div>
-    </article>
+    </motion.article>
+  );
+}
+
+function FeatureVideoCard({ feature }: { feature: VideoFeature }) {
+  return (
+    <div className="feature-video-card">
+      <div className="video-shell">
+        <video
+          src={feature.video}
+          poster={feature.poster}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+        <img src={feature.poster} alt={feature.title} onError={handleImageError("Furniture")} />
+      </div>
+      <div className="feature-video-copy">
+        <p className="eyebrow">Premium motion</p>
+        <h3>{feature.title}</h3>
+        <p>{feature.note}</p>
+      </div>
+    </div>
+  );
+}
+
+function TestimonialCard({ item }: { item: Testimonial }) {
+  return (
+    <motion.article
+      className="story-card testimonial-card"
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.4 }}
+    >
+      <p className="testimonial-quote">"{item.quote}"</p>
+      <strong>{item.name}</strong>
+      <span className="meta-line">{item.role}</span>
+    </motion.article>
   );
 }
 
@@ -1877,6 +2209,20 @@ function getCategoryImages(category: string) {
 
 function getProductImages(product: Product) {
   return product.images.length > 0 ? product.images : getCategoryImages(product.category);
+}
+
+function handleImageError(category: string) {
+  return (event: SyntheticEvent<HTMLImageElement>) => {
+    const fallback = getCategoryImages(category)[0] ?? categoryImages.Furniture[0];
+    if (event.currentTarget.src !== fallback) {
+      event.currentTarget.src = fallback;
+    }
+  };
+}
+
+function readInitialTheme(): ThemeMode {
+  const savedTheme = localStorage.getItem(themeKey);
+  return savedTheme === "dark" ? "dark" : "light";
 }
 
 function getRentalDays(startDate: string, endDate: string) {
