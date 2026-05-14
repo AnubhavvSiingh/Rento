@@ -50,6 +50,49 @@ enum BookingStatus {
   DELIVERED
   RETURN_PICKUP
   COMPLETED
+  CANCELLED
+}
+
+enum QaStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PricingRuleType {
+  WEEKDAY
+  WEEKEND
+  SEASONAL
+  DEMAND
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum ContentType {
+  HERO
+  FAQ
+  POLICY
+  BANNER
+}
+
+enum AnalyticsEventType {
+  PAGE_VIEW
+  PRODUCT_VIEW
+  CHECKOUT_START
+  BOOKING_COMPLETE
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
 }
 
 enum PaymentStatus {
@@ -70,12 +113,20 @@ model Product {
   description String
   tags        String[]
   status      ListingStatus    @default(APPROVED)
+  qaStatus    QaStatus         @default(PENDING)
+  qaNotes     String?
+  qaCheckedAt DateTime?
+  leadTimeDays Int             @default(2)
+  bufferDays  Int              @default(1)
+  minPhotoCount Int            @default(3)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   ownerUser   User?            @relation("AdvertiserProducts", fields: [ownerId], references: [id], onDelete: SetNull)
   images      ProductImage[]
   bookings    Booking[]
   reviews     Review[]
+  availabilityBlocks AvailabilityBlock[]
+  pricingRules PricingRule[]
 
   @@index([city])
   @@index([category])
@@ -88,6 +139,9 @@ model ProductImage {
   id        String   @id @default(cuid())
   url       String
   sortOrder Int      @default(0)
+  qualityScore Int   @default(0)
+  autoTags  String[] @default([])
+  isPrimary Boolean  @default(false)
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -104,6 +158,7 @@ model User {
   role         UserRole
   accessStatus AccessStatus   @default(PENDING)
   provider     AuthProvider   @default(LOCAL)
+  isVerifiedHost Boolean      @default(false)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   sessions     Session[]
@@ -161,6 +216,11 @@ model Booking {
   deposit     Int
   totalAmount Int
   status      BookingStatus @default(PLACED)
+  promoCode   String?
+  discountAmount Int         @default(0)
+  priceBreakdown Json?
+  cancelReason String?
+  cancelledAt DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   product     Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -168,6 +228,7 @@ model Booking {
   payment     Payment?
   shipment    Shipment?
   review      Review?
+  shipmentEvents ShipmentEvent[]
 
   @@index([productId])
   @@index([customerId])
@@ -201,6 +262,7 @@ model Shipment {
   rentalEndDate        DateTime
   deliveryInstructions String?
   conditionPhotoUrl    String?
+  returnScheduledAt    DateTime?
   trackingCode         String   @unique
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -240,4 +302,117 @@ model Notification {
 
   @@index([customerId])
   @@map("notifications")
+}
+
+model AvailabilityBlock {
+  id        String   @id @default(cuid())
+  productId String
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, startDate])
+  @@map("availability_blocks")
+}
+
+model PricingRule {
+  id             String          @id @default(cuid())
+  productId      String
+  label          String
+  type           PricingRuleType
+  multiplier     Float?
+  fixedDailyRate Int?
+  startDate      DateTime?
+  endDate        DateTime?
+  daysOfWeek     DayOfWeek[]    @default([])
+  demandThreshold Int?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("pricing_rules")
+}
+
+model ShipmentEvent {
+  id         String        @id @default(cuid())
+  bookingId  String
+  status     BookingStatus
+  message    String
+  occurredAt DateTime      @default(now())
+  booking    Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("shipment_events")
+}
+
+model ContentBlock {
+  id          String      @id @default(cuid())
+  key         String      @unique
+  title       String
+  body        String
+  type        ContentType
+  isPublished Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("content_blocks")
+}
+
+model PromoCampaign {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  description   String
+  discountType  DiscountType
+  value         Int
+  startsAt      DateTime
+  endsAt        DateTime
+  minOrderAmount Int?
+  usageLimit    Int?
+  usedCount     Int          @default(0)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+
+  @@map("promo_campaigns")
+}
+
+model ReferralCode {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  rewardAmount Int
+  usageCount   Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@map("referral_codes")
+}
+
+model AnalyticsEvent {
+  id         String             @id @default(cuid())
+  eventType  AnalyticsEventType
+  sessionId  String?
+  customerId String?
+  productId  String?
+  metadata   Json?
+  createdAt  DateTime           @default(now())
+
+  @@index([eventType])
+  @@map("analytics_events")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@map("audit_logs")
 }

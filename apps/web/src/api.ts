@@ -8,7 +8,53 @@ export type BookingStatus =
   | "OUT_FOR_DELIVERY"
   | "DELIVERED"
   | "RETURN_PICKUP"
-  | "COMPLETED";
+  | "COMPLETED"
+  | "CANCELLED";
+
+export type QaStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type PricingRuleType = "WEEKDAY" | "WEEKEND" | "SEASONAL" | "DEMAND";
+export type ContentType = "HERO" | "FAQ" | "POLICY" | "BANNER";
+export type DiscountType = "PERCENT" | "FIXED";
+export type AnalyticsEventType =
+  | "PAGE_VIEW"
+  | "PRODUCT_VIEW"
+  | "CHECKOUT_START"
+  | "BOOKING_COMPLETE";
+export type DayOfWeek = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
+
+export type AvailabilityBlock = {
+  id: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+};
+
+export type PricingRule = {
+  id: string;
+  label: string;
+  type: PricingRuleType;
+  multiplier?: number | null;
+  fixedDailyRate?: number | null;
+  startDate?: string;
+  endDate?: string;
+  daysOfWeek: DayOfWeek[];
+  demandThreshold?: number | null;
+  isActive: boolean;
+};
+
+export type ImageDetail = {
+  url: string;
+  qualityScore: number;
+  autoTags: string[];
+  isPrimary: boolean;
+};
+
+export type PhotoQuality = {
+  photoCount: number;
+  averageScore: number;
+  minScore: number;
+  meetsMinimum: boolean;
+};
 
 export type Product = {
   id: string;
@@ -24,6 +70,17 @@ export type Product = {
   tags?: string[];
   status: ListingStatus;
   images: string[];
+  imageDetails?: ImageDetail[];
+  qaStatus: QaStatus;
+  qaNotes?: string;
+  leadTimeDays: number;
+  bufferDays: number;
+  minPhotoCount: number;
+  hostVerified: boolean;
+  damageReports: number;
+  photoQuality?: PhotoQuality;
+  availabilityBlocks?: AvailabilityBlock[];
+  pricingRules?: PricingRule[];
   averageRating: number;
   reviewCount: number;
 };
@@ -38,6 +95,9 @@ export type Overview = {
     cities: number;
     averageSavingsPercent: number;
     pendingAdvertisers?: number;
+    pendingQaListings?: number;
+    verifiedHosts?: number;
+    activePromos?: number;
   };
 };
 
@@ -69,8 +129,15 @@ export type ShippingDetails = {
   rentalEndDate: string;
   deliveryInstructions: string;
   conditionPhotoUrl: string;
+  returnScheduledAt?: string;
   paymentMethod: string;
   paymentReference: string;
+};
+
+export type TrackingEvent = {
+  status: BookingStatus;
+  message: string;
+  occurredAt: string;
 };
 
 export type Booking = {
@@ -80,6 +147,9 @@ export type Booking = {
   productCategory: string;
   dailyRate: number;
   deposit: number;
+  promoCode?: string;
+  discountAmount?: number;
+  priceBreakdown?: Record<string, unknown> | null;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -88,8 +158,71 @@ export type Booking = {
   paymentStatus: "PAID" | "REFUNDED";
   trackingCode: string;
   totalAmount: number;
+  trackingEvents?: TrackingEvent[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type ContentBlock = {
+  id: string;
+  key: string;
+  title: string;
+  body: string;
+  type: ContentType;
+  isPublished: boolean;
+  updatedAt: string;
+  createdAt: string;
+};
+
+export type PromoCampaign = {
+  id: string;
+  code: string;
+  description: string;
+  discountType: DiscountType;
+  value: number;
+  startsAt: string;
+  endsAt: string;
+  minOrderAmount?: number | null;
+  usageLimit?: number | null;
+  usedCount: number;
+  isActive: boolean;
+};
+
+export type ReferralCode = {
+  id: string;
+  code: string;
+  rewardAmount: number;
+  usageCount: number;
+  isActive: boolean;
+};
+
+export type RiskSummary = {
+  cancelledBookings: number;
+  highDamageListings: Array<{ productId: string; name: string; damageReports: number }>;
+  suspiciousOrders: Array<{ bookingId: string; productName: string; totalAmount: number; reason: string }>;
+};
+
+export type AnalyticsSummary = {
+  totalSessions: number;
+  productViews: number;
+  checkoutStarts: number;
+  bookingCompletions: number;
+  conversionRate: number;
+  retentionRate: number;
+  averageLtv: number;
+  utilizationRate: number;
+};
+
+export type AuditLog = {
+  id: string;
+  actorUserId?: string | null;
+  action: string;
+  targetType: string;
+  targetId?: string | null;
+  details?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
 };
 
 export type Review = {
@@ -151,10 +284,17 @@ export type AdminDashboard = {
     approved: number;
     pending: number;
     suspended: number;
+    pendingQaListings?: number;
   };
   advertisers: User[];
   products: Product[];
   bookings: Booking[];
+  risk?: RiskSummary;
+  contentBlocks?: ContentBlock[];
+  promoCampaigns?: PromoCampaign[];
+  referralCodes?: ReferralCode[];
+  analytics?: AnalyticsSummary;
+  recentAuditLogs?: AuditLog[];
 };
 
 export type CustomerDashboard = {
@@ -211,10 +351,75 @@ export type AdvertiserProductPayload = {
   description: string;
   tags: string;
   imageUrls: string;
+  leadTimeDays?: number;
+  bufferDays?: number;
+  minPhotoCount?: number;
 };
 
 export type BookingPayload = ShippingDetails & {
   productId: string;
+  promoCode?: string;
+};
+
+export type AvailabilityBlockPayload = {
+  productId: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+};
+
+export type PricingRulePayload = {
+  productId: string;
+  label: string;
+  type: PricingRuleType;
+  multiplier?: number;
+  fixedDailyRate?: number;
+  startDate?: string;
+  endDate?: string;
+  daysOfWeek?: DayOfWeek[];
+  demandThreshold?: number;
+  isActive?: boolean;
+};
+
+export type ContentBlockPayload = {
+  key: string;
+  title: string;
+  body: string;
+  type: ContentType;
+  isPublished?: boolean;
+};
+
+export type ContentBlockUpdatePayload = {
+  title: string;
+  body: string;
+  type: ContentType;
+  isPublished?: boolean;
+};
+
+export type PromoCampaignPayload = {
+  code: string;
+  description: string;
+  discountType: DiscountType;
+  value: number;
+  startsAt: string;
+  endsAt: string;
+  minOrderAmount?: number;
+  usageLimit?: number;
+  isActive?: boolean;
+};
+
+export type ReferralCodePayload = {
+  code: string;
+  rewardAmount: number;
+  isActive?: boolean;
+};
+
+export type AnalyticsEventPayload = {
+  eventType: AnalyticsEventType;
+  sessionId?: string;
+  customerId?: string;
+  productId?: string;
+  metadata?: Record<string, unknown>;
 };
 
 export type ReviewPayload = {
@@ -334,6 +539,25 @@ export function createAdvertiserProduct(
   });
 }
 
+export function createAvailabilityBlock(
+  token: string,
+  payload: AvailabilityBlockPayload
+) {
+  return apiRequest<ApiMessage & { block?: AvailabilityBlock }>("/api/advertiser/availability", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function createPricingRule(token: string, payload: PricingRulePayload) {
+  return apiRequest<ApiMessage & { rule?: PricingRule }>("/api/advertiser/pricing", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload)
+  });
+}
+
 export function updateAdvertiserAccessStatus(
   token: string,
   userId: string,
@@ -358,6 +582,55 @@ export function updateProductStatus(
   });
 }
 
+export function updateProductQaStatus(
+  token: string,
+  productId: string,
+  qaStatus: QaStatus,
+  qaNotes: string
+) {
+  return apiRequest<ApiMessage & { product?: Product }>(`/api/admin/products/${productId}/qa`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ qaStatus, qaNotes })
+  });
+}
+
+export function createContentBlock(token: string, payload: ContentBlockPayload) {
+  return apiRequest<ApiMessage & { block?: ContentBlock }>("/api/admin/content", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateContentBlock(
+  token: string,
+  contentId: string,
+  payload: ContentBlockUpdatePayload
+) {
+  return apiRequest<ApiMessage & { block?: ContentBlock }>(`/api/admin/content/${contentId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function createPromoCampaign(token: string, payload: PromoCampaignPayload) {
+  return apiRequest<ApiMessage & { campaign?: PromoCampaign }>("/api/admin/promos", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload)
+  });
+}
+
+export function createReferralCode(token: string, payload: ReferralCodePayload) {
+  return apiRequest<ApiMessage & { referral?: ReferralCode }>("/api/admin/referrals", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload)
+  });
+}
+
 export function updateBookingStatus(
   token: string,
   bookingId: string,
@@ -367,6 +640,29 @@ export function updateBookingStatus(
     method: "PATCH",
     headers: authHeaders(token),
     body: JSON.stringify({ status })
+  });
+}
+
+export function scheduleReturnPickup(
+  token: string,
+  bookingId: string,
+  returnScheduledAt?: string
+) {
+  return apiRequest<ApiMessage & { booking?: Booking }>(
+    `/api/admin/bookings/${bookingId}/return-schedule`,
+    {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ returnScheduledAt })
+    }
+  );
+}
+
+export function recordAnalyticsEvent(payload: AnalyticsEventPayload) {
+  return apiRequest<ApiMessage & { event?: unknown }>("/api/analytics", {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(payload)
   });
 }
 

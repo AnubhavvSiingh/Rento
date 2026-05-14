@@ -402,6 +402,13 @@ button {
   color: var(--ink);
 }
 
+.status-banner span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .status-banner.compact {
   margin-top: 0;
   max-width: 360px;
@@ -580,11 +587,34 @@ button {
   font-weight: 700;
 }
 
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.badge.qa-badge {
+  background: rgba(72, 148, 255, 0.18);
+  border-color: rgba(72, 148, 255, 0.4);
+  color: #4a9cff;
+}
+
 .badge.warm-badge {
   background: rgba(244, 200, 106, 0.16);
   border-color: rgba(244, 200, 106, 0.28);
   color: var(--accent-strong);
   margin-bottom: 10px;
+}
+
+.qa-note {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--ink);
 }
 
 .price {
@@ -809,6 +839,28 @@ button {
   margin: 14px 0;
 }
 
+.tracking-timeline {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+
+.tracking-item {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.tracking-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  margin-top: 6px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 .status-step {
   min-height: 44px;
   display: grid;
@@ -835,6 +887,37 @@ button {
   border-top: 1px solid var(--border);
 }
 
+.return-schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.return-schedule input {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--ink);
+}
+
+.price-breakdown {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--surface-glow);
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.price-breakdown pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+}
+
 .notification-list {
   display: grid;
   gap: 12px;
@@ -855,7 +938,7 @@ button {
 
 .listing-item {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--border);

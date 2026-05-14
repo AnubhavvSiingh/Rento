@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { captureError } from "../utils/observability.js";
 
 export class ApiError extends Error {
   constructor(
@@ -29,5 +30,6 @@ export function errorHandler(
     path: req.originalUrl,
     error
   });
+  captureError(error, { method: req.method, path: req.originalUrl });
   res.status(500).json({ message: "Something went wrong. Please try again." });
 }

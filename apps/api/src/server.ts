@@ -9,10 +9,13 @@ import { disconnectDatabase } from "./database/prisma.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { requestLogger } from "./middleware/requestLogger.js";
+import { wafGuard } from "./middleware/wafGuard.js";
 import { registerApiRoutes } from "./routes/apiRoutes.js";
+import { initObservability } from "./utils/observability.js";
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: resolve(currentDirectory, "../.env") });
+initObservability();
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
@@ -43,6 +46,7 @@ app.use(
 app.use(compression());
 app.use(express.json());
 app.use(requestLogger);
+app.use(wafGuard());
 app.use(rateLimit());
 
 registerApiRoutes(app);

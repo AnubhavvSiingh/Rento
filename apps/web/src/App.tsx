@@ -3,8 +3,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { SyntheticEvent } from "react";
 import {
+  createAvailabilityBlock,
   createAdvertiserProduct,
   createBooking as createBookingRequest,
+  createContentBlock,
+  createPricingRule,
+  createPromoCampaign,
+  createReferralCode,
   getAdminDashboard,
   getAdvertiserApprovalStatus,
   getAuthenticatedUser,
@@ -14,23 +19,34 @@ import {
   getMarketplace,
   loginCustomerAccount,
   loginAccount,
+  recordAnalyticsEvent,
   registerCustomerAccount,
   registerAdvertiserAccount,
   saveReview,
+  scheduleReturnPickup,
   updateBookingStatus as updateBookingStatusRequest,
   updateAdvertiserAccessStatus,
+  updateContentBlock,
+  updateProductQaStatus,
   updateProductStatus as updateProductStatusRequest,
   type AdminDashboard,
   type Booking,
   type BookingStatus,
+  type ContentBlock,
+  type ContentType,
   type CustomerProfile,
+  type DayOfWeek,
+  type DiscountType,
   type HostDashboard,
   type ListingStatus,
+  type PricingRuleType,
+  type QaStatus,
   type NotificationItem,
   type Overview,
   type Product,
   type Review,
   type ShippingDetails,
+  type TrackingEvent,
   type User
 } from "./api";
 
@@ -53,6 +69,7 @@ type VideoFeature = { title: string; note: string; poster: string; video: string
 
 const customerTokenKey = "rento_customer_token";
 const themeKey = "rento_theme";
+const analyticsSessionKey = "rento_analytics_session";
 
 const advertiserCategories = [
   "Furniture",
@@ -68,7 +85,8 @@ const bookingStatuses: BookingStatus[] = [
   "OUT_FOR_DELIVERY",
   "DELIVERED",
   "RETURN_PICKUP",
-  "COMPLETED"
+  "COMPLETED",
+  "CANCELLED"
 ];
 
 const categoryImages: Record<string, string[]> = {
@@ -311,6 +329,9 @@ export default function App() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [qaNotesDraft, setQaNotesDraft] = useState<Record<string, string>>({});
+  const [returnScheduleDraft, setReturnScheduleDraft] = useState<Record<string, string>>({});
+  const analyticsSessionId = useMemo(() => getAnalyticsSessionId(), []);
 
   useEffect(() => {
     void loadMarketplace();
@@ -329,6 +350,27 @@ export default function App() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
+
+  useEffect(() => {
+    void recordAnalyticsEvent({
+      eventType: "PAGE_VIEW",
+      sessionId: analyticsSessionId,
+      metadata: { route }
+    }).catch(() => undefined);
+  }, [analyticsSessionId, route]);
+
+  useEffect(() => {
+    if (route !== "customer-shipping" || !selectedProduct) {
+      return;
+    }
+
+    void recordAnalyticsEvent({
+      eventType: "CHECKOUT_START",
+      sessionId: analyticsSessionId,
+      productId: selectedProduct.id,
+      metadata: { productName: selectedProduct.name }
+    }).catch(() => undefined);
+  }, [analyticsSessionId, route, selectedProduct]);
 
   useEffect(() => {
     if (advertiserToken) {
@@ -547,6 +589,9 @@ export default function App() {
     }
 
     const form = new FormData(event.currentTarget);
+    const leadTimeDays = Number(form.get("leadTimeDays") ?? "");
+    const bufferDays = Number(form.get("bufferDays") ?? "");
+    const minPhotoCount = Number(form.get("minPhotoCount") ?? "");
     const payload = {
       name: String(form.get("name") ?? ""),
       category: String(form.get("category") ?? ""),
@@ -555,7 +600,10 @@ export default function App() {
       deposit: Number(form.get("deposit") ?? 0),
       description: String(form.get("description") ?? ""),
       tags: String(form.get("tags") ?? ""),
-      imageUrls: String(form.get("imageUrls") ?? "")
+      imageUrls: String(form.get("imageUrls") ?? ""),
+      leadTimeDays: Number.isFinite(leadTimeDays) ? leadTimeDays : undefined,
+      bufferDays: Number.isFinite(bufferDays) ? bufferDays : undefined,
+      minPhotoCount: Number.isFinite(minPhotoCount) ? minPhotoCount : undefined
     };
 
     const response = await createAdvertiserProduct(advertiserToken, payload);
@@ -569,6 +617,71 @@ export default function App() {
     if (response.ok && data.product) {
       event.currentTarget.reset();
       await Promise.all([loadMarketplace(), loadHostDashboard(advertiserToken)]);
+    }
+  }
+
+  async function submitAvailabilityBlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!advertiserToken) {
+      setStatusMessage("Please login as an approved advertiser first.");
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      productId: String(form.get("productId") ?? ""),
+      startDate: String(form.get("startDate") ?? ""),
+      endDate: String(form.get("endDate") ?? ""),
+      reason: String(form.get("reason") ?? "")
+    };
+
+    const response = await createAvailabilityBlock(advertiserToken, payload);
+    setStatusMessage(response.data.message ?? "Availability saved.");
+
+    if (response.ok) {
+      event.currentTarget.reset();
+      await loadHostDashboard(advertiserToken);
+    }
+  }
+
+  async function submitPricingRule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!advertiserToken) {
+      setStatusMessage("Please login as an approved advertiser first.");
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const multiplier = Number(form.get("multiplier") ?? "");
+    const fixedDailyRate = Number(form.get("fixedDailyRate") ?? "");
+    const demandThreshold = Number(form.get("demandThreshold") ?? "");
+    const daysInput = String(form.get("daysOfWeek") ?? "");
+    const days = daysInput
+      .split(/,|\s+/)
+      .map((day) => day.trim().toUpperCase())
+      .filter(Boolean) as DayOfWeek[];
+
+    const payload = {
+      productId: String(form.get("productId") ?? ""),
+      label: String(form.get("label") ?? ""),
+      type: String(form.get("type") ?? "WEEKEND") as PricingRuleType,
+      multiplier: Number.isFinite(multiplier) ? multiplier : undefined,
+      fixedDailyRate: Number.isFinite(fixedDailyRate) ? fixedDailyRate : undefined,
+      startDate: String(form.get("startDate") ?? ""),
+      endDate: String(form.get("endDate") ?? ""),
+      daysOfWeek: days,
+      demandThreshold: Number.isFinite(demandThreshold) ? demandThreshold : undefined,
+      isActive: String(form.get("isActive") ?? "true") !== "false"
+    };
+
+    const response = await createPricingRule(advertiserToken, payload);
+    setStatusMessage(response.data.message ?? "Pricing rule saved.");
+
+    if (response.ok) {
+      event.currentTarget.reset();
+      await loadHostDashboard(advertiserToken);
     }
   }
 
@@ -602,6 +715,12 @@ export default function App() {
     setCustomerAuthMode(customerProfile ? "signin" : "signup");
     navigate(customerProfile ? "customer-shipping" : "customer-auth");
     setStatusMessage(`Continue your rental for "${product.name}".`);
+    void recordAnalyticsEvent({
+      eventType: "PRODUCT_VIEW",
+      sessionId: analyticsSessionId,
+      productId: product.id,
+      metadata: { productName: product.name }
+    }).catch(() => undefined);
   }
 
   async function submitCustomerAuth(event: FormEvent<HTMLFormElement>) {
@@ -671,9 +790,11 @@ export default function App() {
       paymentReference:
         String(form.get("paymentReference") ?? "") || `PAY-${Date.now().toString().slice(-6)}`
     };
+    const promoCode = String(form.get("promoCode") ?? "");
     const response = await createBookingRequest(customerToken, {
       productId: selectedProduct.id,
-      ...details
+      ...details,
+      promoCode: promoCode || undefined
     });
 
     if (!response.ok || !response.data.booking) {
@@ -686,6 +807,13 @@ export default function App() {
     await loadCustomerSession(customerToken);
     navigate("customer-confirmation");
     setStatusMessage(response.data.message ?? "Your order has been placed.");
+    void recordAnalyticsEvent({
+      eventType: "BOOKING_COMPLETE",
+      sessionId: analyticsSessionId,
+      customerId: customerProfile.id,
+      productId: selectedProduct.id,
+      metadata: { bookingId: response.data.booking.id }
+    }).catch(() => undefined);
   }
 
   async function updateProductStatus(productId: string, status: ListingStatus) {
@@ -695,6 +823,20 @@ export default function App() {
 
     const response = await updateProductStatusRequest(adminToken, productId, status);
     setStatusMessage(response.data.message ?? `Listing ${status.toLowerCase()} successfully.`);
+
+    if (response.ok) {
+      await Promise.all([loadMarketplace(), loadAdminDashboard(adminToken)]);
+    }
+  }
+
+  async function updateProductQa(productId: string, qaStatus: QaStatus) {
+    if (!adminToken) {
+      return;
+    }
+
+    const qaNotes = qaNotesDraft[productId] ?? "";
+    const response = await updateProductQaStatus(adminToken, productId, qaStatus, qaNotes);
+    setStatusMessage(response.data.message ?? "Product QA updated.");
 
     if (response.ok) {
       await Promise.all([loadMarketplace(), loadAdminDashboard(adminToken)]);
@@ -718,6 +860,115 @@ export default function App() {
       if (advertiserToken) {
         await loadHostDashboard(advertiserToken);
       }
+    }
+  }
+
+  async function scheduleReturn(bookingId: string) {
+    if (!adminToken) {
+      return;
+    }
+
+    const returnScheduledAt = returnScheduleDraft[bookingId];
+    const response = await scheduleReturnPickup(adminToken, bookingId, returnScheduledAt);
+    setStatusMessage(response.data.message ?? "Return pickup updated.");
+
+    if (response.ok) {
+      await loadAdminDashboard(adminToken);
+      if (customerToken) {
+        await loadCustomerSession(customerToken);
+      }
+    }
+  }
+
+  async function submitContentBlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!adminToken) {
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      key: String(form.get("key") ?? ""),
+      title: String(form.get("title") ?? ""),
+      body: String(form.get("body") ?? ""),
+      type: String(form.get("type") ?? "HERO") as ContentType,
+      isPublished: String(form.get("isPublished") ?? "true") !== "false"
+    };
+
+    const response = await createContentBlock(adminToken, payload);
+    setStatusMessage(response.data.message ?? "Content block created.");
+
+    if (response.ok) {
+      event.currentTarget.reset();
+      await loadAdminDashboard(adminToken);
+    }
+  }
+
+  async function toggleContentPublish(block: ContentBlock) {
+    if (!adminToken) {
+      return;
+    }
+
+    const response = await updateContentBlock(adminToken, block.id, {
+      title: block.title,
+      body: block.body,
+      type: block.type,
+      isPublished: !block.isPublished
+    });
+    setStatusMessage(response.data.message ?? "Content updated.");
+
+    if (response.ok) {
+      await loadAdminDashboard(adminToken);
+    }
+  }
+
+  async function submitPromoCampaign(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!adminToken) {
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      code: String(form.get("code") ?? "").toUpperCase(),
+      description: String(form.get("description") ?? ""),
+      discountType: String(form.get("discountType") ?? "PERCENT") as DiscountType,
+      value: Number(form.get("value") ?? 0),
+      startsAt: String(form.get("startsAt") ?? ""),
+      endsAt: String(form.get("endsAt") ?? ""),
+      minOrderAmount: Number(form.get("minOrderAmount") ?? 0) || undefined,
+      usageLimit: Number(form.get("usageLimit") ?? 0) || undefined,
+      isActive: String(form.get("isActive") ?? "true") !== "false"
+    };
+
+    const response = await createPromoCampaign(adminToken, payload);
+    setStatusMessage(response.data.message ?? "Promo created.");
+
+    if (response.ok) {
+      event.currentTarget.reset();
+      await loadAdminDashboard(adminToken);
+    }
+  }
+
+  async function submitReferralCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!adminToken) {
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      code: String(form.get("code") ?? "").toUpperCase(),
+      rewardAmount: Number(form.get("rewardAmount") ?? 0),
+      isActive: String(form.get("isActive") ?? "true") !== "false"
+    };
+
+    const response = await createReferralCode(adminToken, payload);
+    setStatusMessage(response.data.message ?? "Referral created.");
+
+    if (response.ok) {
+      event.currentTarget.reset();
+      await loadAdminDashboard(adminToken);
     }
   }
 
@@ -749,7 +1000,10 @@ export default function App() {
   }
 
   const approvedProducts = useMemo(
-    () => products.filter((product) => product.status === "APPROVED"),
+    () =>
+      products.filter(
+        (product) => product.status === "APPROVED" && product.qaStatus === "APPROVED"
+      ),
     [products]
   );
 
@@ -848,6 +1102,8 @@ export default function App() {
               onLogin={login}
               onLogout={() => setAdvertiserToken(null)}
               onSubmitProduct={submitProduct}
+              onSubmitAvailability={submitAvailabilityBlock}
+              onSubmitPricingRule={submitPricingRule}
             />
           )}
           {route === "admin" && (
@@ -868,7 +1124,21 @@ export default function App() {
               onLogout={() => setAdminToken(null)}
               onUpdateAccess={updateAdvertiserAccess}
               onUpdateProductStatus={updateProductStatus}
+              onUpdateProductQa={updateProductQa}
               onUpdateBookingStatus={updateBookingStatus}
+              onScheduleReturn={scheduleReturn}
+              onSubmitContent={submitContentBlock}
+              onToggleContentPublish={toggleContentPublish}
+              onSubmitPromoCampaign={submitPromoCampaign}
+              onSubmitReferralCode={submitReferralCode}
+              qaNotesDraft={qaNotesDraft}
+              onQaNotesChange={(productId, value) =>
+                setQaNotesDraft((prev) => ({ ...prev, [productId]: value }))
+              }
+              returnScheduleDraft={returnScheduleDraft}
+              onReturnScheduleChange={(bookingId, value) =>
+                setReturnScheduleDraft((prev) => ({ ...prev, [bookingId]: value }))
+              }
             />
           )}
         </motion.div>
@@ -972,6 +1242,8 @@ function HomePage({
             <TrustChip label="Average savings" value={`${overview?.stats.averageSavingsPercent ?? 61}%`} />
             <TrustChip label="Approved hosts" value={`${overview?.stats.activeHosts ?? 0}+`} />
             <TrustChip label="Rental-ready cities" value={`${overview?.stats.cities ?? 0}`} />
+            <TrustChip label="QA queue" value={`${overview?.stats.pendingQaListings ?? 0}`} />
+            <TrustChip label="Verified hosts" value={`${overview?.stats.verifiedHosts ?? 0}`} />
           </div>
         </motion.div>
         <div className="hero-stack">
@@ -994,6 +1266,7 @@ function HomePage({
               <StatCard label="Advertisements" value={overview?.stats.listedProducts ?? "-"} />
               <StatCard label="Advertisers" value={overview?.stats.activeHosts ?? "-"} />
               <StatCard label="Cities" value={overview?.stats.cities ?? "-"} />
+              <StatCard label="Active promos" value={overview?.stats.activePromos ?? "-"} />
             </div>
             <p className="status-banner">{statusMessage}</p>
           </motion.div>
@@ -1191,13 +1464,39 @@ function ExplorePage({
           >
             <ProductImages product={product} />
             <div className="product-card-body">
-              <span className="badge">{product.category}</span>
+              <div className="badge-row">
+                <span className="badge">{product.category}</span>
+                {product.hostVerified && <span className="badge warm-badge">Verified host</span>}
+                {product.qaStatus === "APPROVED" && (
+                  <span className="badge qa-badge">QA passed</span>
+                )}
+              </div>
               <h3>{product.name}</h3>
               <p className="price">Rs {product.dailyRate}/day</p>
               <p>{product.description}</p>
               <p className="meta-line">
                 {product.city} | Deposit Rs {product.deposit} | {product.condition ?? "Verified"}
               </p>
+              {product.photoQuality && (
+                <p className="meta-line">
+                  Photo quality: {product.photoQuality.averageScore}/100 | {product.photoQuality.photoCount} photos
+                </p>
+              )}
+              {product.photoQuality && (
+                <p className="meta-line">
+                  {product.photoQuality.meetsMinimum
+                    ? "Photo set meets QA standard"
+                    : "Photo set below QA standard"}
+                </p>
+              )}
+              <p className="meta-line">
+                Lead time: {product.leadTimeDays} days | Buffer: {product.bufferDays} days
+              </p>
+              {product.pricingRules && product.pricingRules.length > 0 && (
+                <p className="meta-line">
+                  Pricing rules active: {product.pricingRules.length}
+                </p>
+              )}
               {product.tags && product.tags.length > 0 && (
                 <div className="tag-row">
                   {product.tags.slice(0, 3).map((tag) => (
@@ -1316,6 +1615,11 @@ function CustomerShippingPage({
               ? `${customerProfile.fullName}, confirm where and when this rental should arrive.`
               : "Please sign in before placing an order."}
           </p>
+          {product && (
+            <p className="meta-line">
+              Lead time: {product.leadTimeDays} days | Buffer: {product.bufferDays} days
+            </p>
+          )}
         </div>
         {product && (
           <div className="status-banner compact">
@@ -1369,6 +1673,11 @@ function CustomerShippingPage({
               type="url"
               placeholder="Optional product condition photo URL before delivery"
             />
+            <input
+              name="promoCode"
+              type="text"
+              placeholder="Promo code (optional)"
+            />
             <div className="payment-panel">
               <p className="panel-title">Payment</p>
               <select name="paymentMethod" defaultValue="UPI">
@@ -1384,6 +1693,9 @@ function CustomerShippingPage({
               />
               <p className="meta-line">
                 Demo checkout confirms payment in-app. A live Razorpay or Stripe key can be added later.
+              </p>
+              <p className="meta-line">
+                Dynamic pricing and promos are applied on the server after you submit.
               </p>
             </div>
             <button type="submit" className="primary-button" disabled={!product || !customerProfile}>
@@ -1401,6 +1713,7 @@ function CustomerShippingPage({
             <div>Deposit: Rs {product?.deposit ?? 0}</div>
             <div>Total: Rs {total}</div>
           </div>
+          <p className="meta-line">Final total will reflect dynamic pricing and promos.</p>
         </article>
       </section>
     </main>
@@ -1436,6 +1749,8 @@ function CustomerConfirmationPage({
           <div>Customer: {customerProfile?.fullName ?? "Customer"}</div>
           <div>Tracking: {booking?.trackingCode ?? "Generating"}</div>
           <div>Payment: {booking?.paymentStatus ?? "PAID"}</div>
+          <div>Promo: {booking?.promoCode || "None"}</div>
+          <div>Discount: Rs {booking?.discountAmount ?? 0}</div>
         </div>
         {shippingDetails && (
           <p className="meta-line">
@@ -1527,7 +1842,11 @@ function CustomerDashboardPage({
           <p className="eyebrow">Rental Summary</p>
           <div className="mini-grid">
             <div>Total orders: {bookings.length}</div>
-            <div>Active: {bookings.filter((item) => item.status !== "COMPLETED").length}</div>
+            <div>
+              Active:{" "}
+              {bookings.filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status))
+                .length}
+            </div>
             <div>Completed: {bookings.filter((item) => item.status === "COMPLETED").length}</div>
             <div>Paid: Rs {bookings.reduce((total, item) => total + item.totalAmount, 0)}</div>
           </div>
@@ -1552,6 +1871,9 @@ function CustomerDashboardPage({
                 </span>
               </div>
               <StatusTrack status={booking.status} />
+              {booking.trackingEvents && booking.trackingEvents.length > 0 && (
+                <TrackingTimeline events={booking.trackingEvents} />
+              )}
               <div className="booking-detail-grid">
                 <div>
                   <strong>Shipment</strong>
@@ -1578,7 +1900,25 @@ function CustomerDashboardPage({
                   <strong>Condition record</strong>
                   <span>{booking.shippingDetails.conditionPhotoUrl || "No photo URL added"}</span>
                 </div>
+                <div>
+                  <strong>Return pickup</strong>
+                  <span>{booking.shippingDetails.returnScheduledAt || "Not scheduled"}</span>
+                </div>
+                <div>
+                  <strong>Promo</strong>
+                  <span>{booking.promoCode ? booking.promoCode : "No promo applied"}</span>
+                </div>
+                <div>
+                  <strong>Discount</strong>
+                  <span>Rs {booking.discountAmount ?? 0}</span>
+                </div>
               </div>
+              {booking.priceBreakdown && (
+                <div className="price-breakdown">
+                  <p className="panel-title">Price breakdown</p>
+                  <pre>{JSON.stringify(booking.priceBreakdown, null, 2)}</pre>
+                </div>
+              )}
               {booking.status === "DELIVERED" ||
               booking.status === "RETURN_PICKUP" ||
               booking.status === "COMPLETED" ? (
@@ -1636,7 +1976,9 @@ function AdvertiserPage({
   onRefreshApproval,
   onLogin,
   onLogout,
-  onSubmitProduct
+  onSubmitProduct,
+  onSubmitAvailability,
+  onSubmitPricingRule
 }: {
   advertiserUser: User | null;
   hostDashboard: HostDashboard | null;
@@ -1649,6 +1991,8 @@ function AdvertiserPage({
   onLogin: (event: FormEvent<HTMLFormElement>, role: User["role"]) => Promise<void>;
   onLogout: () => void;
   onSubmitProduct: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onSubmitAvailability: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onSubmitPricingRule: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 }) {
   return (
     <main className="page-shell">
@@ -1770,6 +2114,16 @@ function AdvertiserPage({
                         {listing.city} | Rs {listing.dailyRate}/day |{" "}
                         {listing.status}
                       </span>
+                      <span>
+                        QA: {listing.qaStatus} | Photos: {listing.photoQuality?.averageScore ?? "-"}/100
+                      </span>
+                      {listing.qaNotes && (
+                        <span className="meta-line">QA note: {listing.qaNotes}</span>
+                      )}
+                      <span className="meta-line">
+                        Availability blocks: {listing.availabilityBlocks?.length ?? 0} | Pricing rules:{" "}
+                        {listing.pricingRules?.length ?? 0}
+                      </span>
                     </div>
                   ))}
                   {hostDashboard.listings.length === 0 && (
@@ -1800,6 +2154,26 @@ function AdvertiserPage({
               <input name="city" type="text" placeholder="City" required />
               <input name="dailyRate" type="number" placeholder="Daily rent" min="1" required />
               <input name="deposit" type="number" placeholder="Deposit amount" min="0" required />
+              <div className="form-grid">
+                <input
+                  name="leadTimeDays"
+                  type="number"
+                  placeholder="Lead time (days)"
+                  min="0"
+                />
+                <input
+                  name="bufferDays"
+                  type="number"
+                  placeholder="Buffer days"
+                  min="0"
+                />
+                <input
+                  name="minPhotoCount"
+                  type="number"
+                  placeholder="Min photo count"
+                  min="1"
+                />
+              </div>
               <textarea name="description" placeholder="Describe the advertisement" required />
               <textarea
                 name="imageUrls"
@@ -1808,6 +2182,76 @@ function AdvertiserPage({
               <input name="tags" type="text" placeholder="Tags separated by commas" />
               <button type="submit" className="primary-button">
                 Submit for admin approval
+              </button>
+            </form>
+          </article>
+
+          <article className="dashboard-card">
+            <p className="eyebrow">Availability Calendar</p>
+            <h3>Block dates when inventory is unavailable</h3>
+            <form className="stack-form" onSubmit={(event) => void onSubmitAvailability(event)}>
+              <select name="productId" required>
+                <option value="">Select product</option>
+                {hostDashboard?.listings.map((listing) => (
+                  <option key={listing.id} value={listing.id}>
+                    {listing.name}
+                  </option>
+                ))}
+              </select>
+              <div className="form-grid">
+                <label>
+                  Start date
+                  <input name="startDate" type="date" required />
+                </label>
+                <label>
+                  End date
+                  <input name="endDate" type="date" required />
+                </label>
+              </div>
+              <input name="reason" type="text" placeholder="Reason (optional)" />
+              <button type="submit" className="secondary-button">
+                Save availability block
+              </button>
+            </form>
+          </article>
+
+          <article className="dashboard-card">
+            <p className="eyebrow">Dynamic Pricing</p>
+            <h3>Create weekday, weekend, or seasonal pricing rules</h3>
+            <form className="stack-form" onSubmit={(event) => void onSubmitPricingRule(event)}>
+              <select name="productId" required>
+                <option value="">Select product</option>
+                {hostDashboard?.listings.map((listing) => (
+                  <option key={listing.id} value={listing.id}>
+                    {listing.name}
+                  </option>
+                ))}
+              </select>
+              <input name="label" type="text" placeholder="Rule label" required />
+              <select name="type" defaultValue="WEEKEND">
+                <option value="WEEKDAY">Weekday</option>
+                <option value="WEEKEND">Weekend</option>
+                <option value="SEASONAL">Seasonal</option>
+                <option value="DEMAND">Demand</option>
+              </select>
+              <div className="form-grid">
+                <input name="multiplier" type="number" step="0.05" placeholder="Multiplier" />
+                <input name="fixedDailyRate" type="number" placeholder="Fixed daily rate" />
+              </div>
+              <div className="form-grid">
+                <label>
+                  Start date
+                  <input name="startDate" type="date" />
+                </label>
+                <label>
+                  End date
+                  <input name="endDate" type="date" />
+                </label>
+              </div>
+              <input name="daysOfWeek" type="text" placeholder="Days (e.g. SAT,SUN)" />
+              <input name="demandThreshold" type="number" placeholder="Demand threshold" />
+              <button type="submit" className="secondary-button">
+                Save pricing rule
               </button>
             </form>
           </article>
@@ -1854,7 +2298,17 @@ function AdminPage({
   onLogout,
   onUpdateAccess,
   onUpdateProductStatus,
-  onUpdateBookingStatus
+  onUpdateProductQa,
+  onUpdateBookingStatus,
+  onScheduleReturn,
+  onSubmitContent,
+  onToggleContentPublish,
+  onSubmitPromoCampaign,
+  onSubmitReferralCode,
+  qaNotesDraft,
+  onQaNotesChange,
+  returnScheduleDraft,
+  onReturnScheduleChange
 }: {
   adminUser: User | null;
   adminDashboard: AdminDashboard | null;
@@ -1872,7 +2326,17 @@ function AdminPage({
   onLogout: () => void;
   onUpdateAccess: (userId: string, accessStatus: User["accessStatus"]) => Promise<void>;
   onUpdateProductStatus: (productId: string, status: ListingStatus) => void;
+  onUpdateProductQa: (productId: string, status: QaStatus) => void;
   onUpdateBookingStatus: (bookingId: string, status: BookingStatus) => void;
+  onScheduleReturn: (bookingId: string) => void;
+  onSubmitContent: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onToggleContentPublish: (block: ContentBlock) => Promise<void>;
+  onSubmitPromoCampaign: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onSubmitReferralCode: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  qaNotesDraft: Record<string, string>;
+  onQaNotesChange: (productId: string, value: string) => void;
+  returnScheduleDraft: Record<string, string>;
+  onReturnScheduleChange: (bookingId: string, value: string) => void;
 }) {
   const filterCards = [
     { label: "Total advertisers", value: adminDashboard?.summary.totalAdvertisers ?? 0, key: "ALL" as AdminFilter },
@@ -1880,6 +2344,12 @@ function AdminPage({
     { label: "Pending", value: adminDashboard?.summary.pending ?? 0, key: "PENDING" as AdminFilter },
     { label: "Suspended", value: adminDashboard?.summary.suspended ?? 0, key: "SUSPENDED" as AdminFilter }
   ];
+  const contentBlocks = adminDashboard?.contentBlocks ?? [];
+  const promoCampaigns = adminDashboard?.promoCampaigns ?? [];
+  const referralCodes = adminDashboard?.referralCodes ?? [];
+  const risk = adminDashboard?.risk;
+  const analytics = adminDashboard?.analytics;
+  const auditLogs = adminDashboard?.recentAuditLogs ?? [];
   const filteredProducts = products.filter((product) =>
     `${product.name} ${product.owner ?? ""} ${product.category}`
       .toLowerCase()
@@ -1896,7 +2366,12 @@ function AdminPage({
             Admin can approve advertisers, moderate product listings, and move rental orders through shipment stages.
           </p>
         </div>
-        <p className="status-banner compact">{statusMessage}</p>
+        <div className="status-banner compact">
+          <strong>{statusMessage}</strong>
+          <span className="meta-line">
+            Pending QA: {adminDashboard?.summary.pendingQaListings ?? 0}
+          </span>
+        </div>
       </section>
 
       <section className="admin-layout">
@@ -2007,6 +2482,54 @@ function AdminPage({
           <section className="dashboard-card moderation-panel">
             <div className="section-header inner-header">
               <div>
+                <p className="eyebrow">Inventory QA</p>
+                <h3>Approve or reject listings based on photo quality.</h3>
+              </div>
+            </div>
+            <div className="moderation-list">
+              {products
+                .filter((product) => product.qaStatus !== "APPROVED")
+                .map((product) => (
+                  <article key={`qa-${product.id}`} className="moderation-item">
+                    <ProductImages product={product} />
+                    <div>
+                      <h4>{product.name}</h4>
+                      <p className="meta-line">
+                        QA status: {product.qaStatus} | Photos: {product.photoQuality?.averageScore ?? 0}/100
+                      </p>
+                      <textarea
+                        className="qa-note"
+                        value={qaNotesDraft[product.id] ?? product.qaNotes ?? ""}
+                        onChange={(event) => onQaNotesChange(product.id, event.target.value)}
+                        placeholder="QA notes for host"
+                      />
+                    </div>
+                    <div className="action-row">
+                      <button
+                        type="button"
+                        className="tiny-button"
+                        onClick={() => onUpdateProductQa(product.id, "APPROVED")}
+                      >
+                        Approve QA
+                      </button>
+                      <button
+                        type="button"
+                        className="tiny-button warning"
+                        onClick={() => onUpdateProductQa(product.id, "REJECTED")}
+                      >
+                        Reject QA
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              {products.filter((product) => product.qaStatus !== "APPROVED").length === 0 && (
+                <p className="meta-line">No pending QA items.</p>
+              )}
+            </div>
+          </section>
+          <section className="dashboard-card moderation-panel">
+            <div className="section-header inner-header">
+              <div>
                 <p className="eyebrow">Product Moderation</p>
                 <h3>Approve listings before customers can rent them.</h3>
               </div>
@@ -2027,6 +2550,7 @@ function AdminPage({
                       {product.owner ?? "Advertiser"} | {product.city} | Rs {product.dailyRate}/day
                     </p>
                     <span className="badge">{product.status}</span>
+                    <span className="badge qa-badge">QA {product.qaStatus}</span>
                   </div>
                   <div className="action-row">
                     <button
@@ -2081,9 +2605,191 @@ function AdminPage({
                       </button>
                     ))}
                   </div>
+                  <div className="return-schedule">
+                    <input
+                      type="date"
+                      value={
+                        returnScheduleDraft[booking.id] ??
+                        booking.shippingDetails.returnScheduledAt ??
+                        ""
+                      }
+                      onChange={(event) =>
+                        onReturnScheduleChange(booking.id, event.target.value)
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="tiny-button"
+                      onClick={() => onScheduleReturn(booking.id)}
+                    >
+                      Schedule return
+                    </button>
+                  </div>
                 </article>
               ))}
               {bookings.length === 0 && <p className="meta-line">No bookings placed yet.</p>}
+            </div>
+          </section>
+
+          <section className="dashboard-card">
+            <p className="eyebrow">Risk Dashboard</p>
+            {risk ? (
+              <>
+                <div className="mini-grid">
+                  <div>Cancelled bookings: {risk.cancelledBookings}</div>
+                  <div>High-damage listings: {risk.highDamageListings.length}</div>
+                  <div>Flagged orders: {risk.suspiciousOrders.length}</div>
+                </div>
+                <div className="listing-stack">
+                  {risk.highDamageListings.map((item) => (
+                    <div key={item.productId} className="listing-item">
+                      <strong>{item.name}</strong>
+                      <span>Damage reports: {item.damageReports}</span>
+                    </div>
+                  ))}
+                  {risk.suspiciousOrders.map((item) => (
+                    <div key={item.bookingId} className="listing-item">
+                      <strong>{item.productName}</strong>
+                      <span>Rs {item.totalAmount} | {item.reason}</span>
+                    </div>
+                  ))}
+                  {risk.highDamageListings.length === 0 && risk.suspiciousOrders.length === 0 && (
+                    <p className="meta-line">No current risk flags.</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="meta-line">Risk analytics are loading.</p>
+            )}
+          </section>
+
+          <section className="dashboard-card">
+            <p className="eyebrow">Analytics Overview</p>
+            {analytics ? (
+              <div className="mini-grid four-up">
+                <div>Total sessions: {analytics.totalSessions}</div>
+                <div>Product views: {analytics.productViews}</div>
+                <div>Checkout starts: {analytics.checkoutStarts}</div>
+                <div>Bookings: {analytics.bookingCompletions}</div>
+                <div>Conversion: {analytics.conversionRate}%</div>
+                <div>Retention: {analytics.retentionRate}%</div>
+                <div>Avg LTV: Rs {analytics.averageLtv}</div>
+                <div>Utilization: {analytics.utilizationRate}%</div>
+              </div>
+            ) : (
+              <p className="meta-line">Analytics data pending.</p>
+            )}
+          </section>
+
+          <section className="dashboard-card">
+            <p className="eyebrow">Content Management</p>
+            <form className="stack-form" onSubmit={(event) => void onSubmitContent(event)}>
+              <input name="key" type="text" placeholder="Content key (e.g. home-hero)" required />
+              <input name="title" type="text" placeholder="Title" required />
+              <textarea name="body" placeholder="Body text" required />
+              <select name="type" defaultValue="HERO">
+                <option value="HERO">Hero</option>
+                <option value="BANNER">Banner</option>
+                <option value="FAQ">FAQ</option>
+                <option value="POLICY">Policy</option>
+              </select>
+              <button type="submit" className="secondary-button">
+                Create content block
+              </button>
+            </form>
+            <div className="listing-stack">
+              {contentBlocks.map((block) => (
+                <div key={block.id} className="listing-item">
+                  <strong>{block.title}</strong>
+                  <span>
+                    {block.type} | {block.isPublished ? "Published" : "Draft"}
+                  </span>
+                  <button
+                    type="button"
+                    className="tiny-button"
+                    onClick={() => void onToggleContentPublish(block)}
+                  >
+                    {block.isPublished ? "Unpublish" : "Publish"}
+                  </button>
+                </div>
+              ))}
+              {contentBlocks.length === 0 && <p className="meta-line">No content blocks yet.</p>}
+            </div>
+          </section>
+
+          <section className="dashboard-card">
+            <p className="eyebrow">Marketing Tools</p>
+            <div className="admin-layout">
+              <div className="card">
+                <p className="panel-title">Promo campaigns</p>
+                <form className="stack-form" onSubmit={(event) => void onSubmitPromoCampaign(event)}>
+                  <input name="code" type="text" placeholder="Promo code" required />
+                  <input name="description" type="text" placeholder="Description" required />
+                  <select name="discountType" defaultValue="PERCENT">
+                    <option value="PERCENT">Percent</option>
+                    <option value="FIXED">Fixed</option>
+                  </select>
+                  <div className="form-grid">
+                    <input name="value" type="number" placeholder="Value" min="1" required />
+                    <input name="minOrderAmount" type="number" placeholder="Min order" />
+                  </div>
+                  <div className="form-grid">
+                    <label>
+                      Starts
+                      <input name="startsAt" type="date" required />
+                    </label>
+                    <label>
+                      Ends
+                      <input name="endsAt" type="date" required />
+                    </label>
+                  </div>
+                  <input name="usageLimit" type="number" placeholder="Usage limit" />
+                  <button type="submit" className="secondary-button">Create promo</button>
+                </form>
+                <div className="listing-stack">
+                  {promoCampaigns.map((promo) => (
+                    <div key={promo.id} className="listing-item">
+                      <strong>{promo.code}</strong>
+                      <span>
+                        {promo.discountType} {promo.value} | Used {promo.usedCount}/{promo.usageLimit ?? "∞"}
+                      </span>
+                    </div>
+                  ))}
+                  {promoCampaigns.length === 0 && <p className="meta-line">No promos yet.</p>}
+                </div>
+              </div>
+              <div className="card">
+                <p className="panel-title">Referral codes</p>
+                <form className="stack-form" onSubmit={(event) => void onSubmitReferralCode(event)}>
+                  <input name="code" type="text" placeholder="Referral code" required />
+                  <input name="rewardAmount" type="number" placeholder="Reward amount" min="1" required />
+                  <button type="submit" className="secondary-button">Create referral</button>
+                </form>
+                <div className="listing-stack">
+                  {referralCodes.map((referral) => (
+                    <div key={referral.id} className="listing-item">
+                      <strong>{referral.code}</strong>
+                      <span>Reward Rs {referral.rewardAmount} | Used {referral.usageCount}</span>
+                    </div>
+                  ))}
+                  {referralCodes.length === 0 && <p className="meta-line">No referrals yet.</p>}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="dashboard-card">
+            <p className="eyebrow">Audit Log</p>
+            <div className="listing-stack">
+              {auditLogs.map((log) => (
+                <div key={log.id} className="listing-item">
+                  <strong>{log.action}</strong>
+                  <span>
+                    {log.targetType} {log.targetId ?? ""} | {new Date(log.createdAt).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+              {auditLogs.length === 0 && <p className="meta-line">No audit logs yet.</p>}
             </div>
           </section>
         </>
@@ -2146,12 +2852,20 @@ function RatingSummary({ product }: { product: Product }) {
     <p className="meta-line">
       {product.reviewCount === 0
         ? "No reviews yet"
-        : `${product.averageRating.toFixed(1)}/5 from ${product.reviewCount} reviews`}
+        : `${product.averageRating.toFixed(1)}/5 from ${product.reviewCount} reviews`} | Damage notes: {product.damageReports}
     </p>
   );
 }
 
 function StatusTrack({ status }: { status: BookingStatus }) {
+  if (status === "CANCELLED") {
+    return (
+      <div className="status-track">
+        <span className="status-step active">Cancelled</span>
+      </div>
+    );
+  }
+
   const activeIndex = bookingStatuses.indexOf(status);
 
   return (
@@ -2160,6 +2874,24 @@ function StatusTrack({ status }: { status: BookingStatus }) {
         <span key={item} className={index <= activeIndex ? "status-step active" : "status-step"}>
           {formatStatus(item)}
         </span>
+      ))}
+    </div>
+  );
+}
+
+function TrackingTimeline({ events }: { events: TrackingEvent[] }) {
+  return (
+    <div className="tracking-timeline">
+      {events.map((event, index) => (
+        <div key={`${event.status}-${index}`} className="tracking-item">
+          <span className="tracking-dot" aria-hidden="true" />
+          <div>
+            <strong>{formatStatus(event.status)}</strong>
+            <span className="meta-line">
+              {event.occurredAt} | {event.message}
+            </span>
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -2321,6 +3053,17 @@ function handleImageError(category: string) {
 function readInitialTheme(): ThemeMode {
   const savedTheme = localStorage.getItem(themeKey);
   return savedTheme === "dark" ? "dark" : "light";
+}
+
+function getAnalyticsSessionId() {
+  const existing = localStorage.getItem(analyticsSessionKey);
+  if (existing) {
+    return existing;
+  }
+
+  const sessionId = `sess-${Math.random().toString(36).slice(2, 10)}`;
+  localStorage.setItem(analyticsSessionKey, sessionId);
+  return sessionId;
 }
 
 function getRentalDays(startDate: string, endDate: string) {

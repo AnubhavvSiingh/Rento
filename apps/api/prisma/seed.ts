@@ -5,7 +5,13 @@ import {
   type AccessStatus,
   type BookingStatus,
   type Category,
+  type ContentType,
+  type DayOfWeek,
+  type DiscountType,
   type ListingStatus,
+  type PricingRuleType,
+  type QaStatus,
+  type AnalyticsEventType,
   type ProductCondition
 } from "@prisma/client";
 import { dirname, resolve } from "node:path";
@@ -27,25 +33,29 @@ const advertisers = [
     id: "usr-shaadi-closet",
     name: "Shaadi Closet",
     email: "shaadi@rento.local",
-    accessStatus: "APPROVED" as AccessStatus
+    accessStatus: "APPROVED" as AccessStatus,
+    isVerifiedHost: true
   },
   {
     id: "usr-urban-nest",
     name: "UrbanNest Host",
     email: "urbannest@rento.local",
-    accessStatus: "APPROVED" as AccessStatus
+    accessStatus: "APPROVED" as AccessStatus,
+    isVerifiedHost: true
   },
   {
     id: "usr-stayeasy",
     name: "StayEasy Rentals",
     email: "stayeasy@rento.local",
-    accessStatus: "PENDING" as AccessStatus
+    accessStatus: "PENDING" as AccessStatus,
+    isVerifiedHost: false
   },
   {
     id: "usr-influence-rack",
     name: "Influence Rack",
     email: "influence@rento.local",
-    accessStatus: "SUSPENDED" as AccessStatus
+    accessStatus: "SUSPENDED" as AccessStatus,
+    isVerifiedHost: false
   }
 ];
 
@@ -73,6 +83,10 @@ const products = [
     ].join(" "),
     tags: ["bridal", "lehenga", "luxury", "wedding"],
     status: "APPROVED" as ListingStatus,
+    qaStatus: "APPROVED" as QaStatus,
+    leadTimeDays: 3,
+    bufferDays: 1,
+    minPhotoCount: 3,
     images: [
       "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
@@ -95,6 +109,10 @@ const products = [
     ].join(" "),
     tags: ["reception", "gown", "fashion", "photoshoot"],
     status: "APPROVED" as ListingStatus,
+    qaStatus: "APPROVED" as QaStatus,
+    leadTimeDays: 2,
+    bufferDays: 1,
+    minPhotoCount: 3,
     images: [
       "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80",
@@ -117,6 +135,10 @@ const products = [
     ].join(" "),
     tags: ["sofa", "living room", "furnished home", "moving city"],
     status: "APPROVED" as ListingStatus,
+    qaStatus: "APPROVED" as QaStatus,
+    leadTimeDays: 4,
+    bufferDays: 2,
+    minPhotoCount: 3,
     images: [
       "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80",
@@ -139,6 +161,10 @@ const products = [
     ].join(" "),
     tags: ["dining", "wood", "family", "hosted apartment"],
     status: "APPROVED" as ListingStatus,
+    qaStatus: "APPROVED" as QaStatus,
+    leadTimeDays: 3,
+    bufferDays: 1,
+    minPhotoCount: 3,
     images: [
       "https://images.unsplash.com/photo-1449247709967-d4461a6a6103?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80",
@@ -161,6 +187,10 @@ const products = [
     ].join(" "),
     tags: ["fridge", "microwave", "relocation", "starter kitchen"],
     status: "PENDING" as ListingStatus,
+    qaStatus: "PENDING" as QaStatus,
+    leadTimeDays: 2,
+    bufferDays: 1,
+    minPhotoCount: 3,
     images: [
       "https://images.unsplash.com/photo-1586208958839-06c17cacdf08?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=1200&q=80",
@@ -183,6 +213,10 @@ const products = [
     ].join(" "),
     tags: ["washer", "dryer", "family home", "long stay"],
     status: "APPROVED" as ListingStatus,
+    qaStatus: "APPROVED" as QaStatus,
+    leadTimeDays: 2,
+    bufferDays: 1,
+    minPhotoCount: 3,
     images: [
       "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1604335399105-a0c585fd81a1?auto=format&fit=crop&w=1200&q=80",
@@ -205,6 +239,10 @@ const products = [
     ].join(" "),
     tags: ["camera", "creator", "influencer", "lighting"],
     status: "SUSPENDED" as ListingStatus,
+    qaStatus: "REJECTED" as QaStatus,
+    leadTimeDays: 5,
+    bufferDays: 2,
+    minPhotoCount: 3,
     images: [
       "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
@@ -227,6 +265,10 @@ const products = [
     ].join(" "),
     tags: ["work from home", "monitor", "chair", "professional"],
     status: "APPROVED" as ListingStatus,
+    qaStatus: "APPROVED" as QaStatus,
+    leadTimeDays: 2,
+    bufferDays: 1,
+    minPhotoCount: 3,
     images: [
       "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80",
       "https://images.unsplash.com/photo-1497366412874-3415097a27e7?auto=format&fit=crop&w=1200&q=80",
@@ -353,6 +395,226 @@ const notifications = [
   }
 ];
 
+const shipmentEvents = [
+  {
+    id: "evt-shp-lehenga-placed",
+    bookingId: "bkg-lehenga-rhea",
+    status: "PLACED" as BookingStatus,
+    message: "Order confirmed and assigned to delivery.",
+    occurredAt: new Date("2026-05-15")
+  },
+  {
+    id: "evt-shp-lehenga-delivered",
+    bookingId: "bkg-lehenga-rhea",
+    status: "DELIVERED" as BookingStatus,
+    message: "Delivery completed with condition checklist verified.",
+    occurredAt: new Date("2026-05-16")
+  },
+  {
+    id: "evt-shp-sofa-packed",
+    bookingId: "bkg-sofa-rhea",
+    status: "PACKED" as BookingStatus,
+    message: "Item packed with protective wrapping.",
+    occurredAt: new Date("2026-05-19")
+  }
+];
+
+const availabilityBlocks = [
+  {
+    id: "blk-lehenga-bridal",
+    productId: "prd-ceremony-lehenga",
+    startDate: new Date("2026-06-10"),
+    endDate: new Date("2026-06-12"),
+    reason: "In-studio styling trials"
+  },
+  {
+    id: "blk-sofa-refresh",
+    productId: "prd-sofa-living",
+    startDate: new Date("2026-06-01"),
+    endDate: new Date("2026-06-03"),
+    reason: "Fabric refresh and cleaning"
+  }
+];
+
+const pricingRules = [
+  {
+    id: "prc-lehenga-weekend",
+    productId: "prd-ceremony-lehenga",
+    label: "Weekend peak",
+    type: "WEEKEND" as PricingRuleType,
+    multiplier: 1.25,
+    fixedDailyRate: null,
+    startDate: null,
+    endDate: null,
+    daysOfWeek: ["SAT", "SUN"] as DayOfWeek[],
+    demandThreshold: null,
+    isActive: true
+  },
+  {
+    id: "prc-festive-season",
+    productId: "prd-ceremony-lehenga",
+    label: "Festive season",
+    type: "SEASONAL" as PricingRuleType,
+    multiplier: 1.4,
+    fixedDailyRate: null,
+    startDate: new Date("2026-10-01"),
+    endDate: new Date("2026-11-15"),
+    daysOfWeek: [],
+    demandThreshold: null,
+    isActive: true
+  },
+  {
+    id: "prc-sofa-demand",
+    productId: "prd-sofa-living",
+    label: "High demand",
+    type: "DEMAND" as PricingRuleType,
+    multiplier: 1.15,
+    fixedDailyRate: null,
+    startDate: null,
+    endDate: null,
+    daysOfWeek: [],
+    demandThreshold: 2,
+    isActive: true
+  },
+  {
+    id: "prc-workstation-weekday",
+    productId: "prd-workstation-bundle",
+    label: "Weekday focus",
+    type: "WEEKDAY" as PricingRuleType,
+    multiplier: 0.95,
+    fixedDailyRate: null,
+    startDate: null,
+    endDate: null,
+    daysOfWeek: ["MON", "TUE", "WED", "THU"] as DayOfWeek[],
+    demandThreshold: null,
+    isActive: true
+  }
+];
+
+const contentBlocks = [
+  {
+    id: "cnt-home-hero",
+    key: "home-hero",
+    title: "Rent the moment, keep the memory",
+    body: "Premium rentals across fashion, furniture, and tech with concierge-level care.",
+    type: "HERO" as ContentType,
+    isPublished: true
+  },
+  {
+    id: "cnt-home-banner",
+    key: "home-banner",
+    title: "Festive season edit",
+    body: "Curated ceremony rentals with verified condition grading and delivery support.",
+    type: "BANNER" as ContentType,
+    isPublished: true
+  },
+  {
+    id: "cnt-faq",
+    key: "faq",
+    title: "Frequently asked questions",
+    body: "Find answers about deposits, delivery timing, and return handling in one place.",
+    type: "FAQ" as ContentType,
+    isPublished: true
+  },
+  {
+    id: "cnt-policy",
+    key: "policy",
+    title: "Rental policy",
+    body: "Transparent pricing, verified hosts, and protection plans for every booking.",
+    type: "POLICY" as ContentType,
+    isPublished: true
+  }
+];
+
+const promoCampaigns = [
+  {
+    id: "promo-first-rent",
+    code: "FIRSTRENT",
+    description: "Welcome discount for first-time renters.",
+    discountType: "PERCENT" as DiscountType,
+    value: 12,
+    startsAt: new Date("2026-05-01"),
+    endsAt: new Date("2026-12-31"),
+    minOrderAmount: 1500,
+    usageLimit: 250,
+    usedCount: 34,
+    isActive: true
+  },
+  {
+    id: "promo-host-push",
+    code: "HOSTLOVE",
+    description: "Limited-time boost for verified hosts.",
+    discountType: "FIXED" as DiscountType,
+    value: 250,
+    startsAt: new Date("2026-05-10"),
+    endsAt: new Date("2026-08-31"),
+    minOrderAmount: 2200,
+    usageLimit: 120,
+    usedCount: 18,
+    isActive: true
+  }
+];
+
+const referralCodes = [
+  {
+    id: "ref-rento-rhea",
+    code: "RHEA100",
+    rewardAmount: 100,
+    usageCount: 6,
+    isActive: true
+  },
+  {
+    id: "ref-rento-shaadi",
+    code: "SHAADI150",
+    rewardAmount: 150,
+    usageCount: 12,
+    isActive: true
+  }
+];
+
+const analyticsEvents = [
+  {
+    id: "evt-home-view",
+    eventType: "PAGE_VIEW" as AnalyticsEventType,
+    sessionId: "sess-home-1",
+    customerId: null,
+    productId: null,
+    metadata: { path: "#/home" },
+    createdAt: new Date("2026-05-12")
+  },
+  {
+    id: "evt-product-view",
+    eventType: "PRODUCT_VIEW" as AnalyticsEventType,
+    sessionId: "sess-prod-1",
+    customerId: customerSeed.id,
+    productId: "prd-ceremony-lehenga",
+    metadata: { source: "hero" },
+    createdAt: new Date("2026-05-12")
+  },
+  {
+    id: "evt-booking-complete",
+    eventType: "BOOKING_COMPLETE" as AnalyticsEventType,
+    sessionId: "sess-book-1",
+    customerId: customerSeed.id,
+    productId: "prd-ceremony-lehenga",
+    metadata: { channel: "organic" },
+    createdAt: new Date("2026-05-12")
+  }
+];
+
+const auditLogs = [
+  {
+    id: "audit-admin-approve",
+    actorUserId: "usr-rento-admin",
+    action: "PRODUCT_QA_APPROVED",
+    targetType: "PRODUCT",
+    targetId: "prd-ceremony-lehenga",
+    details: { note: "All images meet quality bar." },
+    ipAddress: "127.0.0.1",
+    userAgent: "seed"
+  }
+];
+
 async function main() {
   const adminHash = await hash(adminPassword, 10);
   const advertiserHash = await hash(advertiserPassword, 10);
@@ -367,14 +629,16 @@ async function main() {
       passwordHash: adminHash,
       role: "ADMIN",
       accessStatus: "APPROVED",
-      provider: "LOCAL"
+      provider: "LOCAL",
+      isVerifiedHost: false
     },
     update: {
       name: "Rento Admin",
       passwordHash: adminHash,
       role: "ADMIN",
       accessStatus: "APPROVED",
-      provider: "LOCAL"
+      provider: "LOCAL",
+      isVerifiedHost: false
     }
   });
 
@@ -388,14 +652,16 @@ async function main() {
         passwordHash: advertiserHash,
         role: "ADVERTISER",
         accessStatus: advertiser.accessStatus,
-        provider: "LOCAL"
+        provider: "LOCAL",
+        isVerifiedHost: advertiser.isVerifiedHost
       },
       update: {
         name: advertiser.name,
         passwordHash: advertiserHash,
         role: "ADVERTISER",
         accessStatus: advertiser.accessStatus,
-        provider: "LOCAL"
+        provider: "LOCAL",
+        isVerifiedHost: advertiser.isVerifiedHost
       }
     });
   }
@@ -431,7 +697,11 @@ async function main() {
         condition: product.condition,
         description: product.description,
         tags: [...product.tags],
-        status: product.status
+        status: product.status,
+        qaStatus: product.qaStatus,
+        leadTimeDays: product.leadTimeDays,
+        bufferDays: product.bufferDays,
+        minPhotoCount: product.minPhotoCount
       },
       update: {
         name: product.name,
@@ -444,26 +714,70 @@ async function main() {
         condition: product.condition,
         description: product.description,
         tags: [...product.tags],
-        status: product.status
+        status: product.status,
+        qaStatus: product.qaStatus,
+        leadTimeDays: product.leadTimeDays,
+        bufferDays: product.bufferDays,
+        minPhotoCount: product.minPhotoCount
       }
     });
 
     for (const [index, url] of product.images.entries()) {
+      const qualityScore = inferQualityScore(url);
+      const autoTags = buildImageTags(product, url);
+      const isPrimary = index === 0;
+
       await prisma.productImage.upsert({
         where: { id: `${product.id}-img-${index + 1}` },
         create: {
           id: `${product.id}-img-${index + 1}`,
           productId: product.id,
           url,
-          sortOrder: index
+          sortOrder: index,
+          qualityScore,
+          autoTags,
+          isPrimary
         },
         update: {
           productId: product.id,
           url,
-          sortOrder: index
+          sortOrder: index,
+          qualityScore,
+          autoTags,
+          isPrimary
         }
       });
     }
+  }
+
+  for (const block of availabilityBlocks) {
+    await prisma.availabilityBlock.upsert({
+      where: { id: block.id },
+      create: block,
+      update: {
+        startDate: block.startDate,
+        endDate: block.endDate,
+        reason: block.reason
+      }
+    });
+  }
+
+  for (const rule of pricingRules) {
+    await prisma.pricingRule.upsert({
+      where: { id: rule.id },
+      create: rule,
+      update: {
+        label: rule.label,
+        type: rule.type,
+        multiplier: rule.multiplier,
+        fixedDailyRate: rule.fixedDailyRate,
+        startDate: rule.startDate,
+        endDate: rule.endDate,
+        daysOfWeek: rule.daysOfWeek,
+        demandThreshold: rule.demandThreshold,
+        isActive: rule.isActive
+      }
+    });
   }
 
   for (const booking of bookings) {
@@ -582,6 +896,18 @@ async function main() {
     }
   }
 
+  for (const event of shipmentEvents) {
+    await prisma.shipmentEvent.upsert({
+      where: { id: event.id },
+      create: event,
+      update: {
+        status: event.status,
+        message: event.message,
+        occurredAt: event.occurredAt
+      }
+    });
+  }
+
   for (const notification of notifications) {
     await prisma.notification.upsert({
       where: { id: notification.id },
@@ -593,10 +919,128 @@ async function main() {
     });
   }
 
+  for (const block of contentBlocks) {
+    await prisma.contentBlock.upsert({
+      where: { id: block.id },
+      create: block,
+      update: {
+        title: block.title,
+        body: block.body,
+        type: block.type,
+        isPublished: block.isPublished
+      }
+    });
+  }
+
+  for (const campaign of promoCampaigns) {
+    await prisma.promoCampaign.upsert({
+      where: { id: campaign.id },
+      create: campaign,
+      update: {
+        description: campaign.description,
+        discountType: campaign.discountType,
+        value: campaign.value,
+        startsAt: campaign.startsAt,
+        endsAt: campaign.endsAt,
+        minOrderAmount: campaign.minOrderAmount,
+        usageLimit: campaign.usageLimit,
+        usedCount: campaign.usedCount,
+        isActive: campaign.isActive
+      }
+    });
+  }
+
+  for (const referral of referralCodes) {
+    await prisma.referralCode.upsert({
+      where: { id: referral.id },
+      create: referral,
+      update: {
+        rewardAmount: referral.rewardAmount,
+        usageCount: referral.usageCount,
+        isActive: referral.isActive
+      }
+    });
+  }
+
+  for (const event of analyticsEvents) {
+    await prisma.analyticsEvent.upsert({
+      where: { id: event.id },
+      create: event,
+      update: {
+        eventType: event.eventType,
+        sessionId: event.sessionId,
+        customerId: event.customerId,
+        productId: event.productId,
+        metadata: event.metadata,
+        createdAt: event.createdAt
+      }
+    });
+  }
+
+  for (const log of auditLogs) {
+    await prisma.auditLog.upsert({
+      where: { id: log.id },
+      create: log,
+      update: {
+        action: log.action,
+        targetType: log.targetType,
+        targetId: log.targetId,
+        details: log.details,
+        ipAddress: log.ipAddress,
+        userAgent: log.userAgent
+      }
+    });
+  }
+
   console.log("Seeded Rento demo data.");
   console.log(`Admin login: ${adminEmail} / ${adminPassword}`);
   console.log(`Advertiser login: shaadi@rento.local / ${advertiserPassword}`);
   console.log(`Customer login: ${customerSeed.email} / ${customerPassword}`);
+}
+
+function inferQualityScore(url: string) {
+  const widthMatch = url.match(/w=(\d+)/);
+  const qualityMatch = url.match(/q=(\d+)/);
+  const width = widthMatch ? Number(widthMatch[1]) : 0;
+  const quality = qualityMatch ? Number(qualityMatch[1]) : 0;
+  let score = 50;
+
+  if (width >= 1200) {
+    score += 30;
+  } else if (width >= 800) {
+    score += 20;
+  }
+
+  if (quality >= 80) {
+    score += 15;
+  } else if (quality >= 60) {
+    score += 5;
+  }
+
+  return Math.min(100, score);
+}
+
+function buildImageTags(
+  product: { name: string; category: Category; tags: string[] },
+  url: string
+) {
+  const baseTags = new Set<string>([...product.tags, product.category.toLowerCase()]);
+  const nameTags = product.name
+    .toLowerCase()
+    .split(/\s+/)
+    .map((tag) => tag.replace(/[^a-z0-9]/g, ""))
+    .filter((tag) => tag.length > 3)
+    .slice(0, 2);
+
+  for (const tag of nameTags) {
+    baseTags.add(tag);
+  }
+
+  if (url.includes("w=1200") || url.includes("w=1400")) {
+    baseTags.add("hires");
+  }
+
+  return Array.from(baseTags).slice(0, 8);
 }
 
 main()

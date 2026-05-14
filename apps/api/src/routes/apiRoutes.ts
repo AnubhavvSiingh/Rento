@@ -7,18 +7,31 @@ import {
   assertAccessStatus,
   assertBooking,
   assertBookingStatus,
+  assertContentBlock,
+  assertContentUpdate,
   assertCustomerRegister,
+  assertAvailabilityBlock,
   assertListingStatus,
   assertLogin,
+  assertPricingRule,
   assertProduct,
+  assertPromoCampaign,
+  assertQaUpdate,
+  assertReferralCode,
   assertRegisterAdvertiser,
-  assertReview
+  assertReview,
+  assertAnalyticsEvent
 } from "../validators/schemas.js";
 import {
   checkHealth,
+  createAvailabilityBlock,
   createAdvertiserProduct,
   createBooking,
+  createContentBlock,
+  createPromoCampaign,
+  createReferralCode,
   createReview,
+  createPricingRule,
   getAdminDashboard,
   getAdvertiserStatus,
   getCustomerDashboard,
@@ -27,10 +40,14 @@ import {
   listProducts,
   loginCustomer,
   loginUser,
+  recordAnalyticsEvent,
   registerAdvertiser,
   registerCustomer,
+  scheduleReturnPickup,
   updateAdvertiserAccess,
+  updateContentBlock,
   updateBookingStatus,
+  updateProductQaStatus,
   updateProductStatus
 } from "../services/rentoService.js";
 
@@ -190,6 +207,38 @@ export function registerApiRoutes(app: Express) {
     })
   );
 
+  app.post(
+    "/api/advertiser/availability",
+    requireUserAuth("ADVERTISER"),
+    asyncHandler(async (req, res) => {
+      const user = (req as UserRequest).user;
+      if (!user) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
+      res.status(201).json({
+        message: "Availability block saved.",
+        block: await createAvailabilityBlock(user, assertAvailabilityBlock(req.body))
+      });
+    })
+  );
+
+  app.post(
+    "/api/advertiser/pricing",
+    requireUserAuth("ADVERTISER"),
+    asyncHandler(async (req, res) => {
+      const user = (req as UserRequest).user;
+      if (!user) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
+      res.status(201).json({
+        message: "Pricing rule saved.",
+        rule: await createPricingRule(user, assertPricingRule(req.body))
+      });
+    })
+  );
+
   app.get(
     "/api/admin/dashboard",
     requireUserAuth("ADMIN"),
@@ -202,9 +251,18 @@ export function registerApiRoutes(app: Express) {
     "/api/admin/users/:userId/access",
     requireUserAuth("ADMIN"),
     asyncHandler(async (req, res) => {
+      const admin = (req as UserRequest).user;
+      if (!admin) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
       res.json({
         message: "Advertiser access updated.",
-        user: await updateAdvertiserAccess(routeParam(req.params.userId), assertAccessStatus(req.body))
+        user: await updateAdvertiserAccess(
+          admin.id,
+          routeParam(req.params.userId),
+          assertAccessStatus(req.body)
+        )
       });
     })
   );
@@ -213,9 +271,106 @@ export function registerApiRoutes(app: Express) {
     "/api/admin/products/:productId/status",
     requireUserAuth("ADMIN"),
     asyncHandler(async (req, res) => {
+      const admin = (req as UserRequest).user;
+      if (!admin) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
       res.json({
         message: "Product status updated.",
-        product: await updateProductStatus(routeParam(req.params.productId), assertListingStatus(req.body))
+        product: await updateProductStatus(
+          admin.id,
+          routeParam(req.params.productId),
+          assertListingStatus(req.body)
+        )
+      });
+    })
+  );
+
+  app.patch(
+    "/api/admin/products/:productId/qa",
+    requireUserAuth("ADMIN"),
+    asyncHandler(async (req, res) => {
+      const admin = (req as UserRequest).user;
+      if (!admin) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
+      res.json({
+        message: "Product QA updated.",
+        product: await updateProductQaStatus(
+          admin.id,
+          routeParam(req.params.productId),
+          assertQaUpdate(req.body)
+        )
+      });
+    })
+  );
+
+  app.post(
+    "/api/admin/content",
+    requireUserAuth("ADMIN"),
+    asyncHandler(async (req, res) => {
+      const admin = (req as UserRequest).user;
+      if (!admin) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
+      res.status(201).json({
+        message: "Content block created.",
+        block: await createContentBlock(admin.id, assertContentBlock(req.body))
+      });
+    })
+  );
+
+  app.patch(
+    "/api/admin/content/:contentId",
+    requireUserAuth("ADMIN"),
+    asyncHandler(async (req, res) => {
+      const admin = (req as UserRequest).user;
+      if (!admin) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
+      res.json({
+        message: "Content block updated.",
+        block: await updateContentBlock(
+          admin.id,
+          routeParam(req.params.contentId),
+          assertContentUpdate(req.body)
+        )
+      });
+    })
+  );
+
+  app.post(
+    "/api/admin/promos",
+    requireUserAuth("ADMIN"),
+    asyncHandler(async (req, res) => {
+      const admin = (req as UserRequest).user;
+      if (!admin) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
+      res.status(201).json({
+        message: "Promo campaign created.",
+        campaign: await createPromoCampaign(admin.id, assertPromoCampaign(req.body))
+      });
+    })
+  );
+
+  app.post(
+    "/api/admin/referrals",
+    requireUserAuth("ADMIN"),
+    asyncHandler(async (req, res) => {
+      const admin = (req as UserRequest).user;
+      if (!admin) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
+      res.status(201).json({
+        message: "Referral code created.",
+        referral: await createReferralCode(admin.id, assertReferralCode(req.body))
       });
     })
   );
@@ -224,9 +379,49 @@ export function registerApiRoutes(app: Express) {
     "/api/admin/bookings/:bookingId/status",
     requireUserAuth("ADMIN"),
     asyncHandler(async (req, res) => {
+      const admin = (req as UserRequest).user;
+      if (!admin) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
       res.json({
         message: "Booking status updated.",
-        booking: await updateBookingStatus(routeParam(req.params.bookingId), assertBookingStatus(req.body))
+        booking: await updateBookingStatus(
+          admin.id,
+          routeParam(req.params.bookingId),
+          assertBookingStatus(req.body)
+        )
+      });
+    })
+  );
+
+  app.patch(
+    "/api/admin/bookings/:bookingId/return-schedule",
+    requireUserAuth("ADMIN"),
+    asyncHandler(async (req, res) => {
+      const admin = (req as UserRequest).user;
+      if (!admin) {
+        throw new ApiError(401, "Authentication is required.");
+      }
+
+      const value = req.body as { returnScheduledAt?: string };
+      res.json({
+        message: "Return pickup scheduled.",
+        booking: await scheduleReturnPickup(
+          admin.id,
+          routeParam(req.params.bookingId),
+          value.returnScheduledAt
+        )
+      });
+    })
+  );
+
+  app.post(
+    "/api/analytics",
+    asyncHandler(async (req, res) => {
+      res.status(201).json({
+        message: "Event recorded.",
+        event: await recordAnalyticsEvent(assertAnalyticsEvent(req.body))
       });
     })
   );
