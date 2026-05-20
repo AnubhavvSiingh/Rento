@@ -1025,8 +1025,11 @@ function TopBar({
             type="button"
             className="mini-admin-button"
             onClick={() => navigate("admin")}
+            title="Admin access"
+            aria-label="Admin access"
           >
-            Are you Admin
+            <AdminShieldIcon />
+            <span className="sr-only">Are you Admin</span>
           </button>
         )}
         <button
@@ -1068,6 +1071,27 @@ function TopBar({
         </button>
       </nav>
     </header>
+  );
+}
+
+function AdminShieldIcon() {
+  return (
+    <svg
+      className="admin-shield-icon"
+      viewBox="0 0 64 64"
+      focusable="false"
+      aria-hidden="true"
+    >
+      <path
+        d="M32 5.5 11.8 14.7a4.4 4.4 0 0 0-2.6 4v12.4c0 14.6 9.2 23.8 20.5 28a6.7 6.7 0 0 0 4.6 0c11.3-4.2 20.5-13.4 20.5-28V18.7a4.4 4.4 0 0 0-2.6-4L32 5.5Z"
+        fill="currentColor"
+      />
+      <circle cx="32" cy="26.2" r="8" fill="var(--admin-icon-cutout)" />
+      <path
+        d="M18.6 46.9c2.7-8.2 8.1-12 13.4-12s10.7 3.8 13.4 12c-3.3 4-7.7 6.6-13.4 6.6s-10.1-2.6-13.4-6.6Z"
+        fill="var(--admin-icon-cutout)"
+      />
+    </svg>
   );
 }
 
