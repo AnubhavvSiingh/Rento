@@ -2,15 +2,16 @@ import type { NextFunction, Request, Response } from "express";
 
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 
-export function rateLimit(maxRequests = 180, windowMs = 60_000) {
+export function rateLimit(maxRequests = 180, windowMs = 60_000, scope = "global") {
   return (req: Request, res: Response, next: NextFunction) => {
     const key =
       req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() || req.ip || "unknown";
+    const scopedKey = `${scope}:${key}`;
     const now = Date.now();
-    const bucket = requestBuckets.get(key);
+    const bucket = requestBuckets.get(scopedKey);
 
     if (!bucket || bucket.resetAt < now) {
-      requestBuckets.set(key, { count: 1, resetAt: now + windowMs });
+      requestBuckets.set(scopedKey, { count: 1, resetAt: now + windowMs });
       applyRateLimitHeaders(res, maxRequests, 1, now + windowMs);
       next();
       return;

@@ -16,6 +16,8 @@ import { compare, hash } from "bcryptjs";
 import crypto from "node:crypto";
 import { prisma } from "../database/prisma.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { buildEvent } from "../kafka/events.js";
+import { publishEvent } from "../kafka/kafkaClient.js";
 import { createSessionToken, createTrackingCode, hashSessionToken } from "../utils/tokens.js";
 
 const sessionTtlHours = Number(process.env.SESSION_TTL_HOURS ?? 24 * 7);
@@ -30,7 +32,6 @@ export async function getOverview() {
     listedProducts,
     groupedCities,
     groupedHosts,
-    pendingAdvertisers,
     pendingQaListings,
     verifiedHosts,
     activePromos
@@ -38,7 +39,6 @@ export async function getOverview() {
     prisma.product.count({ where: { status: "APPROVED", qaStatus: "APPROVED" } }),
     prisma.product.groupBy({ by: ["city"], where: { status: "APPROVED" } }),
     prisma.product.groupBy({ by: ["owner"], where: { status: "APPROVED" } }),
-    prisma.user.count({ where: { role: "ADVERTISER", accessStatus: "PENDING" } }),
     prisma.product.count({ where: { qaStatus: "PENDING" } }),
     prisma.user.count({ where: { role: "ADVERTISER", isVerifiedHost: true } }),
     prisma.promoCampaign.count({
@@ -65,7 +65,6 @@ export async function getOverview() {
       activeHosts: groupedHosts.length,
       cities: groupedCities.length,
       averageSavingsPercent: 61,
-      pendingAdvertisers,
       pendingQaListings,
       verifiedHosts,
       activePromos
@@ -80,7 +79,7 @@ export async function listProducts() {
     orderBy: { name: "asc" }
   });
 
-  return products.map(mapProduct);
+  return products.map(mapPublicProduct);
 }
 
 export async function registerAdvertiser(input: {
@@ -145,7 +144,6 @@ export async function getAdvertiserStatus(email: string) {
   }
 
   return {
-    email: user.email,
     accessStatus: user.accessStatus
   };
 }
@@ -323,6 +321,22 @@ export async function createBooking(
     customerId,
     "Order placed",
     `Your rental order for ${product.name} is confirmed. We will email the shipment tracking link shortly.`
+  );
+
+  void emitEvent(
+    "booking-events",
+    booking.id,
+    buildEvent("BOOKING_CREATED", {
+      bookingId: booking.id,
+      productId: booking.productId,
+      productName: booking.product.name,
+      customerId: booking.customerId,
+      status: booking.status,
+      totalAmount: booking.totalAmount,
+      trackingCode: booking.shipment?.trackingCode ?? "",
+      rentalStartDate: booking.shipment?.rentalStartDate ?? null,
+      rentalEndDate: booking.shipment?.rentalEndDate ?? null
+    })
   );
 
   return mapBooking(booking);
@@ -517,6 +531,17 @@ export async function createAdvertiserProduct(
     include: productIncludes()
   });
 
+  void emitEvent(
+    "qa-events",
+    product.id,
+    buildEvent("PRODUCT_SUBMITTED", {
+      productId: product.id,
+      ownerId: product.ownerId,
+      qaStatus: product.qaStatus,
+      imageCount: product.images.length
+    })
+  );
+
   return mapProduct(product);
 }
 
@@ -544,7 +569,7 @@ export async function createAvailabilityBlock(
     throw new ApiError(409, "Availability block overlaps an existing block.");
   }
 
-  return prisma.availabilityBlock.create({
+  const block = await prisma.availabilityBlock.create({
     data: {
       productId: input.productId,
       startDate: input.startDate,
@@ -552,6 +577,19 @@ export async function createAvailabilityBlock(
       reason: input.reason
     }
   });
+
+  void emitEvent(
+    "admin-events",
+    block.id,
+    buildEvent("AVAILABILITY_BLOCK_CREATED", {
+      blockId: block.id,
+      productId: block.productId,
+      startDate: block.startDate,
+      endDate: block.endDate
+    })
+  );
+
+  return block;
 }
 
 export async function createPricingRule(
@@ -581,7 +619,7 @@ export async function createPricingRule(
     throw new ApiError(400, "Pricing rule needs multiplier or fixedDailyRate.");
   }
 
-  return prisma.pricingRule.create({
+  const rule = await prisma.pricingRule.create({
     data: {
       productId: input.productId,
       label: input.label,
@@ -595,6 +633,19 @@ export async function createPricingRule(
       isActive: input.isActive ?? true
     }
   });
+
+  void emitEvent(
+    "admin-events",
+    rule.id,
+    buildEvent("PRICING_RULE_CREATED", {
+      ruleId: rule.id,
+      productId: rule.productId,
+      type: rule.type,
+      label: rule.label
+    })
+  );
+
+  return rule;
 }
 
 export async function getAdminDashboard() {
@@ -669,6 +720,15 @@ export async function updateAdvertiserAccess(
     details: { accessStatus }
   });
 
+  void emitEvent(
+    "admin-events",
+    userId,
+    buildEvent("ADVERTISER_ACCESS_UPDATED", {
+      userId,
+      accessStatus
+    })
+  );
+
   return sanitizeUser(user);
 }
 
@@ -688,6 +748,15 @@ export async function updateProductStatus(
     targetId: productId,
     details: { status }
   });
+
+  void emitEvent(
+    "admin-events",
+    productId,
+    buildEvent("PRODUCT_STATUS_UPDATED", {
+      productId,
+      status
+    })
+  );
 
   return mapProduct(product);
 }
@@ -713,6 +782,16 @@ export async function updateProductQaStatus(
     details: { qaStatus: input.qaStatus }
   });
 
+  void emitEvent(
+    "qa-events",
+    productId,
+    buildEvent("PRODUCT_QA_UPDATED", {
+      productId,
+      qaStatus: input.qaStatus,
+      qaNotes: input.qaNotes
+    })
+  );
+
   return mapProduct(product);
 }
 
@@ -736,6 +815,16 @@ export async function createContentBlock(
     details: { key: block.key }
   });
 
+  void emitEvent(
+    "admin-events",
+    block.id,
+    buildEvent("CONTENT_BLOCK_CREATED", {
+      contentId: block.id,
+      key: block.key,
+      type: block.type
+    })
+  );
+
   return block;
 }
 
@@ -758,6 +847,16 @@ export async function updateContentBlock(
     targetType: "CONTENT_BLOCK",
     targetId: block.id
   });
+
+  void emitEvent(
+    "admin-events",
+    block.id,
+    buildEvent("CONTENT_BLOCK_UPDATED", {
+      contentId: block.id,
+      key: block.key,
+      type: block.type
+    })
+  );
 
   return block;
 }
@@ -796,6 +895,16 @@ export async function createPromoCampaign(
     details: { code: campaign.code }
   });
 
+  void emitEvent(
+    "admin-events",
+    campaign.id,
+    buildEvent("PROMO_CREATED", {
+      promoId: campaign.id,
+      code: campaign.code,
+      discountType: campaign.discountType
+    })
+  );
+
   return campaign;
 }
 
@@ -817,6 +926,16 @@ export async function createReferralCode(
     details: { code: referral.code }
   });
 
+  void emitEvent(
+    "admin-events",
+    referral.id,
+    buildEvent("REFERRAL_CREATED", {
+      referralId: referral.id,
+      code: referral.code,
+      rewardAmount: referral.rewardAmount
+    })
+  );
+
   return referral;
 }
 
@@ -827,7 +946,7 @@ export async function recordAnalyticsEvent(input: {
   productId?: string;
   metadata: Record<string, unknown> | null;
 }) {
-  return prisma.analyticsEvent.create({
+  const event = await prisma.analyticsEvent.create({
     data: {
       eventType: input.eventType,
       sessionId: input.sessionId || null,
@@ -836,6 +955,19 @@ export async function recordAnalyticsEvent(input: {
       metadata: input.metadata ?? null
     }
   });
+
+  void emitEvent(
+    "analytics-events",
+    event.id,
+    buildEvent("ANALYTICS_RECORDED", {
+      eventId: event.id,
+      eventType: event.eventType,
+      sessionId: event.sessionId,
+      productId: event.productId
+    })
+  );
+
+  return event;
 }
 
 export async function updateBookingStatus(
@@ -860,6 +992,16 @@ export async function updateBookingStatus(
     targetId: booking.id,
     details: { status }
   });
+
+  void emitEvent(
+    "booking-events",
+    booking.id,
+    buildEvent("BOOKING_STATUS_UPDATED", {
+      bookingId: booking.id,
+      productId: booking.productId,
+      status
+    })
+  );
 
   await createNotification(
     booking.customerId,
@@ -905,6 +1047,15 @@ export async function scheduleReturnPickup(
     targetId: booking.id,
     details: { returnScheduledAt: scheduleDate?.toISOString() ?? null }
   });
+
+  void emitEvent(
+    "booking-events",
+    booking.id,
+    buildEvent("RETURN_PICKUP_SCHEDULED", {
+      bookingId: booking.id,
+      returnScheduledAt: scheduleDate?.toISOString() ?? null
+    })
+  );
 
   return mapBooking(booking);
 }
@@ -989,6 +1140,14 @@ async function createAuditLog(
       userAgent: options.userAgent ?? null
     }
   });
+}
+
+async function emitEvent(topic: string, key: string, payload: unknown) {
+  try {
+    await publishEvent(topic, key, payload);
+  } catch (error) {
+    console.warn("Kafka publish failed:", { topic, key, error });
+  }
 }
 
 function sanitizeUser(user: {
@@ -1090,6 +1249,32 @@ function mapProduct(product: {
     pricingRules: product.pricingRules?.map(mapPricingRule) ?? [],
     averageRating,
     reviewCount: reviews.length
+  };
+}
+
+function mapPublicProduct(product: Parameters<typeof mapProduct>[0]) {
+  const mapped = mapProduct(product);
+  return {
+    id: mapped.id,
+    name: mapped.name,
+    city: mapped.city,
+    category: mapped.category,
+    dailyRate: mapped.dailyRate,
+    deposit: mapped.deposit,
+    description: mapped.description,
+    condition: mapped.condition,
+    tags: mapped.tags,
+    status: mapped.status,
+    qaStatus: mapped.qaStatus,
+    leadTimeDays: mapped.leadTimeDays,
+    bufferDays: mapped.bufferDays,
+    images: mapped.images,
+    hostVerified: mapped.hostVerified,
+    damageReports: mapped.damageReports,
+    photoQuality: mapped.photoQuality,
+    averageRating: mapped.averageRating,
+    reviewCount: mapped.reviewCount,
+    pricingRulesCount: mapped.pricingRules?.length ?? 0
   };
 }
 

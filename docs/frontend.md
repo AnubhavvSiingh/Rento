@@ -16,3 +16,6 @@ The web client covers browsing, customer checkout, advertiser onboarding, and ad
 
 ## Local Run
 - npm run dev:web
+
+## Security
+- See docs/security.md for the production checklist.

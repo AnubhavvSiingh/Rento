@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { requireCustomerAuth, requireUserAuth } from "../middleware/auth.js";
 import { ApiError } from "../middleware/errorHandler.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 import type { CustomerRequest, UserRequest } from "../types/domain.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
@@ -75,6 +76,7 @@ export function registerApiRoutes(app: Express) {
 
   app.post(
     "/api/auth/register-advertiser",
+    rateLimit(6, 60_000, "auth-register-advertiser"),
     asyncHandler(async (req, res) => {
       const user = await registerAdvertiser(assertRegisterAdvertiser(req.body));
       res.status(201).json({
@@ -86,6 +88,7 @@ export function registerApiRoutes(app: Express) {
 
   app.post(
     "/api/auth/login",
+    rateLimit(10, 60_000, "auth-login"),
     asyncHandler(async (req, res) => {
       res.json(await loginUser(assertLogin(req.body)));
     })
@@ -93,6 +96,7 @@ export function registerApiRoutes(app: Express) {
 
   app.get(
     "/api/auth/advertiser-status",
+    rateLimit(20, 60_000, "auth-status"),
     asyncHandler(async (req, res) => {
       const email = typeof req.query.email === "string" ? req.query.email.toLowerCase() : "";
       if (!email) {
@@ -113,6 +117,7 @@ export function registerApiRoutes(app: Express) {
 
   app.post(
     "/api/customers/register",
+    rateLimit(6, 60_000, "customer-register"),
     asyncHandler(async (req, res) => {
       res.status(201).json(await registerCustomer(assertCustomerRegister(req.body)));
     })
@@ -120,6 +125,7 @@ export function registerApiRoutes(app: Express) {
 
   app.post(
     "/api/customers/login",
+    rateLimit(10, 60_000, "customer-login"),
     asyncHandler(async (req, res) => {
       res.json(await loginCustomer(assertLogin(req.body)));
     })
@@ -148,6 +154,7 @@ export function registerApiRoutes(app: Express) {
 
   app.post(
     "/api/bookings",
+    rateLimit(12, 60_000, "booking-create"),
     requireCustomerAuth(),
     asyncHandler(async (req, res) => {
       const customer = (req as CustomerRequest).customer;
@@ -164,6 +171,7 @@ export function registerApiRoutes(app: Express) {
 
   app.post(
     "/api/bookings/:bookingId/review",
+    rateLimit(12, 60_000, "booking-review"),
     requireCustomerAuth(),
     asyncHandler(async (req, res) => {
       const customer = (req as CustomerRequest).customer;
@@ -418,10 +426,11 @@ export function registerApiRoutes(app: Express) {
 
   app.post(
     "/api/analytics",
+    rateLimit(120, 60_000, "analytics"),
     asyncHandler(async (req, res) => {
+      await recordAnalyticsEvent(assertAnalyticsEvent(req.body));
       res.status(201).json({
-        message: "Event recorded.",
-        event: await recordAnalyticsEvent(assertAnalyticsEvent(req.body))
+        message: "Event recorded."
       });
     })
   );

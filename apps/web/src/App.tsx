@@ -1,7 +1,6 @@
 // Main UI composition for the Rento web app, including routing and data flows.
 import { AnimatePresence, motion } from "framer-motion";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import type { SyntheticEvent } from "react";
 import {
   createAvailabilityBlock,
   createAdvertiserProduct,
@@ -46,9 +45,30 @@ import {
   type Product,
   type Review,
   type ShippingDetails,
-  type TrackingEvent,
   type User
 } from "./api";
+import {
+  categoryShowcases,
+  homeTestimonials,
+  homeVideoFeature,
+  homeVisuals
+} from "./content";
+import {
+  FeatureVideoCard,
+  ImageCard,
+  StatCard,
+  StatCardSkeleton,
+  StatusTrack,
+  TestimonialCard,
+  TrackingTimeline,
+  TrustChip,
+  TrustChipSkeleton
+} from "./components/marketplace";
+import { formatStatus } from "./utils/booking";
+import { AdminPage } from "./pages/AdminPage";
+import { AdvertiserPage } from "./pages/AdvertiserPage";
+import { CustomerAuthPage, type CustomerAuthMode } from "./pages/CustomerAuthPage";
+import { ExplorePage } from "./pages/ExplorePage";
 
 type Route =
   | "home"
@@ -60,244 +80,20 @@ type Route =
   | "advertiser"
   | "admin";
 
-type CustomerAuthMode = "signup" | "signin";
 type AdminFilter = "ALL" | "APPROVED" | "PENDING" | "SUSPENDED";
 type ThemeMode = "dark" | "light";
-type MediaCard = { title: string; note: string; image: string; accent?: string };
-type Testimonial = { quote: string; name: string; role: string };
-type VideoFeature = { title: string; note: string; poster: string; video: string };
 
 const customerTokenKey = "rento_customer_token";
 const themeKey = "rento_theme";
 const analyticsSessionKey = "rento_analytics_session";
 
-const advertiserCategories = [
-  "Furniture",
-  "Appliances",
-  "Fashion",
-  "Ceremony",
-  "Electronics"
-];
-
-const bookingStatuses: BookingStatus[] = [
-  "PLACED",
-  "PACKED",
-  "OUT_FOR_DELIVERY",
-  "DELIVERED",
-  "RETURN_PICKUP",
-  "COMPLETED",
-  "CANCELLED"
-];
-
-const categoryImages: Record<string, string[]> = {
-  Furniture: [
-    "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80"
-  ],
-  Appliances: [
-    "https://images.unsplash.com/photo-1586208958839-06c17cacdf08?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?auto=format&fit=crop&w=1200&q=80"
-  ],
-  Fashion: [
-    "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=80"
-  ],
-  Ceremony: [
-    "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=1200&q=80"
-  ],
-  Electronics: [
-    "https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80"
-  ]
-};
-
-const homeVisuals: MediaCard[] = [
-  {
-    title: "Occasion wear that does not sit unused",
-    note: [
-      "Premium lehengas, gowns, and statement pieces move from one beautiful day",
-      "to the next instead of sitting in wardrobes."
-    ].join(" "),
-    image: categoryImages.Ceremony[2],
-    accent: "Ceremony"
-  },
-  {
-    title: "Furniture for flexible city living",
-    note: [
-      "Moving cities gets easier when comfort arrives ready-made and leaves without",
-      "stress when plans change."
-    ].join(" "),
-    image: categoryImages.Furniture[2],
-    accent: "Furniture"
-  },
-  {
-    title: "Everyday essentials that arrive fast",
-    note: [
-      "Appliances, electronics, and ceremony must-haves become affordable through",
-      "access instead of ownership."
-    ].join(" "),
-    image: categoryImages.Appliances[2],
-    accent: "Appliances"
-  }
-];
-
-const exploreVisuals: MediaCard[] = [
-  {
-    title: "Browse by moment, not only category",
-    note: [
-      "From wedding mornings to furnished move-ins, every listing is organized",
-      "around why people rent in real life."
-    ].join(" "),
-    image: categoryImages.Ceremony[1],
-    accent: "Ceremony"
-  },
-  {
-    title: "Premium shots make browsing feel effortless",
-    note: [
-      "A more editorial product view helps customers imagine the rental before they",
-      "even open checkout."
-    ].join(" "),
-    image: categoryImages.Fashion[2],
-    accent: "Fashion"
-  },
-  {
-    title: "Fast-moving homes need short-term setup",
-    note: [
-      "Beds, workstations, appliances, and sofas can be rented city by city with",
-      "less upfront cost."
-    ].join(" "),
-    image: categoryImages.Furniture[1],
-    accent: "Furniture"
-  }
-];
-
-const advertiserVisuals: MediaCard[] = [
-  {
-    title: "Photographed listings perform better",
-    note: [
-      "Clear, aesthetic product images help renters trust the condition, styling,",
-      "and value of each listing."
-    ].join(" "),
-    image: categoryImages.Fashion[1],
-    accent: "Fashion"
-  },
-  {
-    title: "Homes and events need temporary items",
-    note: [
-      "Unused products can become steady rental income with approval, tracking,",
-      "and live performance visibility."
-    ].join(" "),
-    image: categoryImages.Furniture[0],
-    accent: "Furniture"
-  },
-  {
-    title: "Measure income against upkeep",
-    note: [
-      "Advertisers can see booking demand, revenue, cost, and ROI from one",
-      "dashboard built for repeat rentals."
-    ].join(" "),
-    image: categoryImages.Electronics[1],
-    accent: "Electronics"
-  }
-];
-
-const categoryShowcases: MediaCard[] = [
-  {
-    title: "Wedding and ceremony wear",
-    note: [
-      "Lehengas, gowns, sherwanis, and premium styling accessories for one-time",
-      "moments."
-    ].join(" "),
-    image: categoryImages.Ceremony[0],
-    accent: "Ceremony"
-  },
-  {
-    title: "Ready-to-live furniture",
-    note: [
-      "Sofas, dining sets, beds, and desks for relocations, rentals, and flexible",
-      "homes."
-    ].join(" "),
-    image: categoryImages.Furniture[0],
-    accent: "Furniture"
-  },
-  {
-    title: "Appliances for short stays",
-    note: [
-      "Fridges, laundry, microwaves, and kitchen essentials without heavy upfront",
-      "buying."
-    ].join(" "),
-    image: categoryImages.Appliances[0],
-    accent: "Appliances"
-  },
-  {
-    title: "Creator and work gear",
-    note: [
-      "Cameras, monitors, and productivity bundles for campaigns, gigs, and",
-      "temporary setups."
-    ].join(" "),
-    image: categoryImages.Electronics[0],
-    accent: "Electronics"
-  }
-];
-
-const homeVideoFeature: VideoFeature = {
-  title: "See how modern renting feels inside Rento",
-  note: [
-    "From occasion wear to apartment essentials, customers can move through",
-    "inspiration, trust, checkout, and tracking without friction."
-  ].join(" "),
-  poster: categoryImages.Ceremony[0],
-  video: "https://assets.mixkit.co/videos/preview/mixkit-young-woman-browsing-clothes-in-a-boutique-4626-large.mp4"
-};
-
-const exploreVideoFeature: VideoFeature = {
-  title: "Browse rentals like a premium marketplace",
-  note: [
-    "A calm discovery experience, expressive visuals, and fast filtering make",
-    "customers stay longer and convert better."
-  ].join(" "),
-  poster: categoryImages.Furniture[0],
-  video: "https://assets.mixkit.co/videos/preview/mixkit-modern-living-room-interior-44783-large.mp4"
-};
-
-const homeTestimonials: Testimonial[] = [
-  {
-    quote: [
-      "I rented my ceremony lehenga instead of buying one for a single day, and",
-      "the experience felt premium from start to finish."
-    ].join(" "),
-    name: "Ananya",
-    role: "Bride in Delhi"
-  },
-  {
-    quote: [
-      "Moving into Bengaluru for six months was easier because I could rent a",
-      "sofa, desk, and appliances in one place."
-    ].join(" "),
-    name: "Rahul",
-    role: "Consultant relocating cities"
-  },
-  {
-    quote: [
-      "Posting unused furniture on Rento turned storage into revenue. The approval",
-      "and tracking flow made it feel reliable."
-    ].join(" "),
-    name: "Mitali",
-    role: "Advertiser host"
-  }
-];
 
 export default function App() {
   const [route, setRoute] = useState<Route>(getRouteFromHash());
   const [theme, setTheme] = useState<ThemeMode>(() => readInitialTheme());
   const [overview, setOverview] = useState<Overview | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [isMarketplaceLoading, setIsMarketplaceLoading] = useState(true);
   const [advertiserUser, setAdvertiserUser] = useState<User | null>(null);
   const [adminUser, setAdminUser] = useState<User | null>(null);
   const [advertiserToken, setAdvertiserToken] = useState<string | null>(
@@ -329,6 +125,9 @@ export default function App() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isCustomerLoading, setIsCustomerLoading] = useState(false);
+  const [isHostLoading, setIsHostLoading] = useState(false);
+  const [isAdminLoading, setIsAdminLoading] = useState(false);
   const [qaNotesDraft, setQaNotesDraft] = useState<Record<string, string>>({});
   const [returnScheduleDraft, setReturnScheduleDraft] = useState<Record<string, string>>({});
   const analyticsSessionId = useMemo(() => getAnalyticsSessionId(), []);
@@ -381,6 +180,7 @@ export default function App() {
       localStorage.removeItem("rento_advertiser_token");
       setAdvertiserUser(null);
       setHostDashboard(null);
+      setIsHostLoading(false);
     }
   }, [advertiserToken]);
 
@@ -393,6 +193,7 @@ export default function App() {
       localStorage.removeItem("rento_admin_token");
       setAdminUser(null);
       setAdminDashboard(null);
+      setIsAdminLoading(false);
     }
   }, [adminToken]);
 
@@ -406,6 +207,7 @@ export default function App() {
       setBookings([]);
       setReviews([]);
       setNotifications([]);
+      setIsCustomerLoading(false);
     }
   }, [customerToken]);
 
@@ -420,6 +222,10 @@ export default function App() {
   }, [registeredAdvertiserEmail]);
 
   async function loadMarketplace() {
+    const shouldShowSkeleton = products.length === 0;
+    if (shouldShowSkeleton) {
+      setIsMarketplaceLoading(true);
+    }
     try {
       const marketplace = await getMarketplace();
       setOverview(marketplace.overview);
@@ -427,6 +233,10 @@ export default function App() {
     } catch (error) {
       console.error(error);
       setStatusMessage("Unable to load marketplace data.");
+    } finally {
+      if (shouldShowSkeleton) {
+        setIsMarketplaceLoading(false);
+      }
     }
   }
 
@@ -456,6 +266,10 @@ export default function App() {
   }
 
   async function loadHostDashboard(token: string) {
+    const shouldShowSkeleton = !hostDashboard;
+    if (shouldShowSkeleton) {
+      setIsHostLoading(true);
+    }
     try {
       const response = await getHostDashboard(token);
 
@@ -468,10 +282,18 @@ export default function App() {
     } catch (error) {
       console.error(error);
       setHostDashboard(null);
+    } finally {
+      if (shouldShowSkeleton) {
+        setIsHostLoading(false);
+      }
     }
   }
 
   async function loadAdminDashboard(token: string) {
+    const shouldShowSkeleton = !adminDashboard;
+    if (shouldShowSkeleton) {
+      setIsAdminLoading(true);
+    }
     try {
       const response = await getAdminDashboard(token);
 
@@ -484,10 +306,19 @@ export default function App() {
     } catch (error) {
       console.error(error);
       setAdminDashboard(null);
+    } finally {
+      if (shouldShowSkeleton) {
+        setIsAdminLoading(false);
+      }
     }
   }
 
   async function loadCustomerSession(token: string) {
+    const shouldShowSkeleton =
+      bookings.length === 0 && notifications.length === 0 && reviews.length === 0;
+    if (shouldShowSkeleton) {
+      setIsCustomerLoading(true);
+    }
     try {
       const [profileResponse, dashboardResponse] = await Promise.all([
         getCustomerProfile(token),
@@ -506,6 +337,10 @@ export default function App() {
     } catch (error) {
       console.error(error);
       setCustomerToken(null);
+    } finally {
+      if (shouldShowSkeleton) {
+        setIsCustomerLoading(false);
+      }
     }
   }
 
@@ -1032,13 +867,18 @@ export default function App() {
         <motion.div
           key={route}
           className="page-stage"
-          initial={{ opacity: 0, y: 26 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -18 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: 0, y: 28, scale: 0.985 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -14, scale: 0.985 }}
+          transition={{ type: "spring", stiffness: 210, damping: 28, mass: 0.85 }}
         >
           {route === "home" && (
-            <HomePage overview={overview} navigate={navigate} statusMessage={statusMessage} />
+            <HomePage
+              overview={overview}
+              navigate={navigate}
+              statusMessage={statusMessage}
+              isLoading={isMarketplaceLoading}
+            />
           )}
           {route === "explore" && (
             <ExplorePage
@@ -1046,6 +886,7 @@ export default function App() {
               overview={overview}
               onRent={beginRentFlow}
               selectedProduct={selectedProduct}
+              isLoading={isMarketplaceLoading}
             />
           )}
           {route === "customer-auth" && (
@@ -1079,6 +920,7 @@ export default function App() {
               bookings={bookings}
               notifications={notifications}
               reviews={reviews}
+              isLoading={isCustomerLoading}
               onGoToAuth={() => navigate("customer-auth")}
               onExplore={() => navigate("explore")}
               onLogout={logoutCustomer}
@@ -1089,6 +931,7 @@ export default function App() {
             <AdvertiserPage
               advertiserUser={advertiserUser}
               hostDashboard={hostDashboard}
+              isLoading={isHostLoading}
               statusMessage={statusMessage}
               registeredAdvertiserEmail={registeredAdvertiserEmail}
               advertiserRegistrationStatus={advertiserRegistrationStatus}
@@ -1111,6 +954,7 @@ export default function App() {
               adminUser={adminUser}
               adminDashboard={adminDashboard}
               filteredAdvertisers={filteredAdvertisers}
+              isLoading={isAdminLoading}
               adminSearch={adminSearch}
               adminFilter={adminFilter}
               productSearch={productSearch}
@@ -1173,11 +1017,15 @@ function TopBar({
         <button type="button" className="ghost-button" onClick={() => navigate("advertiser")}>
           Advertiser
         </button>
-        <button type="button" className="ghost-button" onClick={() => navigate("customer-dashboard")}>
+        <button type="button" className="ghost-button" onClick={() => navigate("customer-dashboard") }>
           {hasCustomer ? "My Rentals" : "Customer Login"}
         </button>
         {route !== "admin" && (
-          <button type="button" className="mini-admin-button" onClick={() => navigate("admin")}>
+          <button
+            type="button"
+            className="mini-admin-button"
+            onClick={() => navigate("admin")}
+          >
             Are you Admin
           </button>
         )}
@@ -1187,11 +1035,36 @@ function TopBar({
           onClick={onToggleTheme}
           aria-pressed={theme === "dark"}
           title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
           <span className="theme-toggle-icon" aria-hidden="true">
-            {theme === "dark" ? "D" : "L"}
+            {theme === "dark" ? (
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path
+                  d="M17.293 13.293A8 8 0 1110.707 6.707a6.2 6.2 0 106.586 6.586z"
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  fill="currentColor"
+                  transform="translate(0 -0.9)"
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <circle cx="12" cy="12" r="4.5" fill="currentColor" />
+                <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <line x1="12" y1="2.5" x2="12" y2="5" />
+                  <line x1="12" y1="19" x2="12" y2="21.5" />
+                  <line x1="2.5" y1="12" x2="5" y2="12" />
+                  <line x1="19" y1="12" x2="21.5" y2="12" />
+                  <line x1="4.8" y1="4.8" x2="6.6" y2="6.6" />
+                  <line x1="17.4" y1="17.4" x2="19.2" y2="19.2" />
+                  <line x1="4.8" y1="19.2" x2="6.6" y2="17.4" />
+                  <line x1="17.4" y1="6.6" x2="19.2" y2="4.8" />
+                </g>
+              </svg>
+            )}
           </span>
-          <span>{theme === "dark" ? "Dark" : "Light"}</span>
+          <span className="sr-only">{theme === "dark" ? "Light" : "Dark"} mode</span>
         </button>
       </nav>
     </header>
@@ -1201,12 +1074,16 @@ function TopBar({
 function HomePage({
   overview,
   navigate,
-  statusMessage
+  statusMessage,
+  isLoading
 }: {
   overview: Overview | null;
   navigate: (route: Route) => void;
   statusMessage: string;
+  isLoading: boolean;
 }) {
+  const showSkeletons = isLoading;
+
   return (
     <main className="page-shell">
       <section className="hero hero-home premium-hero">
@@ -1238,12 +1115,23 @@ function HomePage({
             <span>Calendar-ready rentals</span>
             <span>Trusted approvals</span>
           </div>
-          <div className="trust-row">
-            <TrustChip label="Average savings" value={`${overview?.stats.averageSavingsPercent ?? 61}%`} />
-            <TrustChip label="Approved hosts" value={`${overview?.stats.activeHosts ?? 0}+`} />
-            <TrustChip label="Rental-ready cities" value={`${overview?.stats.cities ?? 0}`} />
-            <TrustChip label="QA queue" value={`${overview?.stats.pendingQaListings ?? 0}`} />
-            <TrustChip label="Verified hosts" value={`${overview?.stats.verifiedHosts ?? 0}`} />
+          <div className="trust-row" aria-busy={showSkeletons} aria-live="polite">
+            {showSkeletons
+              ? Array.from({ length: 5 }).map((_, index) => (
+                  <TrustChipSkeleton key={`trust-skeleton-${index}`} />
+                ))
+              : (
+                <>
+                  <TrustChip
+                    label="Average savings"
+                    value={`${overview?.stats.averageSavingsPercent ?? 61}%`}
+                  />
+                  <TrustChip label="Approved hosts" value={`${overview?.stats.activeHosts ?? 0}+`} />
+                  <TrustChip label="Rental-ready cities" value={`${overview?.stats.cities ?? 0}`} />
+                  <TrustChip label="QA queue" value={`${overview?.stats.pendingQaListings ?? 0}`} />
+                  <TrustChip label="Verified hosts" value={`${overview?.stats.verifiedHosts ?? 0}`} />
+                </>
+              )}
           </div>
         </motion.div>
         <div className="hero-stack">
@@ -1262,11 +1150,19 @@ function HomePage({
             transition={{ delay: 0.24, duration: 0.58 }}
           >
             <p className="panel-title">Live platform snapshot</p>
-            <div className="stat-strip">
-              <StatCard label="Advertisements" value={overview?.stats.listedProducts ?? "-"} />
-              <StatCard label="Advertisers" value={overview?.stats.activeHosts ?? "-"} />
-              <StatCard label="Cities" value={overview?.stats.cities ?? "-"} />
-              <StatCard label="Active promos" value={overview?.stats.activePromos ?? "-"} />
+            <div className="stat-strip" aria-busy={showSkeletons} aria-live="polite">
+              {showSkeletons
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <StatCardSkeleton key={`stat-skeleton-${index}`} />
+                  ))
+                : (
+                  <>
+                    <StatCard label="Advertisements" value={overview?.stats.listedProducts ?? "-"} />
+                    <StatCard label="Advertisers" value={overview?.stats.activeHosts ?? "-"} />
+                    <StatCard label="Cities" value={overview?.stats.cities ?? "-"} />
+                    <StatCard label="Active promos" value={overview?.stats.activePromos ?? "-"} />
+                  </>
+                )}
             </div>
             <p className="status-banner">{statusMessage}</p>
           </motion.div>
@@ -1328,264 +1224,6 @@ function HomePage({
           <TestimonialCard key={item.name} item={item} />
         ))}
       </section>
-    </main>
-  );
-}
-
-function ExplorePage({
-  products,
-  overview,
-  selectedProduct,
-  onRent
-}: {
-  products: Product[];
-  overview: Overview | null;
-  selectedProduct: Product | null;
-  onRent: (product: Product) => void;
-}) {
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
-  const [city, setCity] = useState("All");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [sort, setSort] = useState("recommended");
-  const cities = useMemo(
-    () => Array.from(new Set(products.map((product) => product.city))).sort(),
-    [products]
-  );
-  const filteredProducts = useMemo(() => {
-    const max = maxPrice ? Number(maxPrice) : Number.POSITIVE_INFINITY;
-    const filtered = products.filter((product) => {
-      const matchesText = `${product.name} ${product.description} ${product.category}`
-        .toLowerCase()
-        .includes(search.toLowerCase());
-      const matchesCategory = category === "All" || product.category === category;
-      const matchesCity = city === "All" || product.city === city;
-      const matchesPrice = product.dailyRate <= max;
-      return matchesText && matchesCategory && matchesCity && matchesPrice;
-    });
-
-    return [...filtered].sort((a, b) => {
-      if (sort === "price-low") {
-        return a.dailyRate - b.dailyRate;
-      }
-      if (sort === "price-high") {
-        return b.dailyRate - a.dailyRate;
-      }
-      return a.name.localeCompare(b.name);
-    });
-  }, [category, city, maxPrice, products, search, sort]);
-
-  return (
-    <main className="page-shell">
-      <section className="section-header">
-        <div>
-          <p className="eyebrow">Customer Landing Page</p>
-          <h2>Explore rentals that feel curated, useful, and ready for real life.</h2>
-          <p className="section-text">
-            {overview?.positioning ??
-              "Browse approved listings, compare deposits, book dates, and track delivery."}
-          </p>
-        </div>
-        <div className="status-banner compact">
-          {filteredProducts.length} approved listings ready to rent
-        </div>
-      </section>
-
-      <section className="feature-band explore-band">
-        <article className="feature-copy">
-          <p className="eyebrow">Explore better</p>
-          <h3>Find apparel, furniture, appliances, and creator gear with a smoother discovery flow.</h3>
-          <p className="section-text">
-            Customers come to Rento for stylish ceremony outfits, flexible home setups, and
-            short-term essentials. Better visuals, clearer categories, and cleaner browsing help
-            more people stay, compare, and place rentals.
-          </p>
-          <div className="cute-badge-row">
-            <span className="cute-badge"><span className="cute-icon">01</span> Search across categories</span>
-            <span className="cute-badge"><span className="cute-icon">02</span> Review deposits before checkout</span>
-            <span className="cute-badge"><span className="cute-icon">03</span> Track every shipment after booking</span>
-          </div>
-        </article>
-        <article className="hero-panel media-panel">
-          <FeatureVideoCard feature={exploreVideoFeature} />
-        </article>
-      </section>
-
-      <section className="filter-panel" aria-label="Search and filters">
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search lehenga, sofa, fridge, camera..."
-        />
-        <select value={category} onChange={(event) => setCategory(event.target.value)}>
-          <option value="All">All categories</option>
-          {advertiserCategories.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-        <select value={city} onChange={(event) => setCity(event.target.value)}>
-          <option value="All">All cities</option>
-          {cities.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min="1"
-          value={maxPrice}
-          onChange={(event) => setMaxPrice(event.target.value)}
-          placeholder="Max Rs/day"
-        />
-        <select value={sort} onChange={(event) => setSort(event.target.value)}>
-          <option value="recommended">Recommended</option>
-          <option value="price-low">Price: low to high</option>
-          <option value="price-high">Price: high to low</option>
-        </select>
-      </section>
-
-      <section className="visual-gallery compact-gallery">
-        {exploreVisuals.map((item) => (
-          <ImageCard key={item.title} item={item} />
-        ))}
-      </section>
-
-      <section className="cards cards-wide">
-        {filteredProducts.map((product) => (
-          <motion.article
-            key={product.id}
-            className="card product-card"
-            whileHover={{ y: -8 }}
-            transition={{ duration: 0.22 }}
-          >
-            <ProductImages product={product} />
-            <div className="product-card-body">
-              <div className="badge-row">
-                <span className="badge">{product.category}</span>
-                {product.hostVerified && <span className="badge warm-badge">Verified host</span>}
-                {product.qaStatus === "APPROVED" && (
-                  <span className="badge qa-badge">QA passed</span>
-                )}
-              </div>
-              <h3>{product.name}</h3>
-              <p className="price">Rs {product.dailyRate}/day</p>
-              <p>{product.description}</p>
-              <p className="meta-line">
-                {product.city} | Deposit Rs {product.deposit} | {product.condition ?? "Verified"}
-              </p>
-              {product.photoQuality && (
-                <p className="meta-line">
-                  Photo quality: {product.photoQuality.averageScore}/100 | {product.photoQuality.photoCount} photos
-                </p>
-              )}
-              {product.photoQuality && (
-                <p className="meta-line">
-                  {product.photoQuality.meetsMinimum
-                    ? "Photo set meets QA standard"
-                    : "Photo set below QA standard"}
-                </p>
-              )}
-              <p className="meta-line">
-                Lead time: {product.leadTimeDays} days | Buffer: {product.bufferDays} days
-              </p>
-              {product.pricingRules && product.pricingRules.length > 0 && (
-                <p className="meta-line">
-                  Pricing rules active: {product.pricingRules.length}
-                </p>
-              )}
-              {product.tags && product.tags.length > 0 && (
-                <div className="tag-row">
-                  {product.tags.slice(0, 3).map((tag) => (
-                    <span key={tag} className="tag-pill">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <RatingSummary product={product} />
-              <div className="card-footer">
-                <button type="button" className="primary-button" onClick={() => onRent(product)}>
-                  {selectedProduct?.id === product.id ? "Continue Rental" : "Rent this item"}
-                </button>
-              </div>
-            </div>
-          </motion.article>
-        ))}
-        {filteredProducts.length === 0 && (
-          <article className="card">
-            <h3>No approved listing matched</h3>
-            <p>Try a wider city, category, or price range.</p>
-          </article>
-        )}
-      </section>
-
-      <section className="story-grid">
-        {categoryShowcases.slice(0, 2).map((item) => (
-          <ImageCard key={`explore-${item.title}`} item={item} />
-        ))}
-      </section>
-    </main>
-  );
-}
-
-function CustomerAuthPage({
-  mode,
-  product,
-  onModeChange,
-  onSubmit
-}: {
-  mode: CustomerAuthMode;
-  product: Product | null;
-  onModeChange: (mode: CustomerAuthMode) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-}) {
-  return (
-    <main className="page-shell narrow-page">
-      <section className="section-header">
-        <div>
-          <p className="eyebrow">Customer Access</p>
-          <h2>{product ? `Continue booking ${product.name}` : "Enter your customer dashboard"}</h2>
-          <p className="section-text">
-            Sign up once with your details. After that, sign in directly with email and password.
-          </p>
-        </div>
-      </section>
-
-      <article className="auth-card">
-        <div className="tab-row">
-          <button
-            type="button"
-            className={mode === "signup" ? "filter-chip active" : "filter-chip"}
-            onClick={() => onModeChange("signup")}
-          >
-            Sign up
-          </button>
-          <button
-            type="button"
-            className={mode === "signin" ? "filter-chip active" : "filter-chip"}
-            onClick={() => onModeChange("signin")}
-          >
-            Sign in
-          </button>
-        </div>
-        <form className="stack-form" onSubmit={onSubmit}>
-          {mode === "signup" && (
-            <input name="fullName" type="text" placeholder="Full name" required />
-          )}
-          <input name="email" type="email" placeholder="Email ID" required />
-          {mode === "signup" && (
-            <input name="phone" type="tel" placeholder="Phone number" required />
-          )}
-          <input name="password" type="password" placeholder="Password" minLength={6} required />
-          <button type="submit" className="primary-button">
-            {mode === "signup" ? "Create customer account" : "Sign in"}
-          </button>
-        </form>
-      </article>
     </main>
   );
 }
@@ -1776,6 +1414,7 @@ function CustomerDashboardPage({
   bookings,
   notifications,
   reviews,
+  isLoading,
   onGoToAuth,
   onExplore,
   onLogout,
@@ -1785,11 +1424,18 @@ function CustomerDashboardPage({
   bookings: Booking[];
   notifications: NotificationItem[];
   reviews: Review[];
+  isLoading: boolean;
   onGoToAuth: () => void;
   onExplore: () => void;
   onLogout: () => void;
   onSubmitReview: (event: FormEvent<HTMLFormElement>, booking: Booking) => Promise<void>;
 }) {
+  const showSkeletons = isLoading;
+
+  if (!customerProfile && showSkeletons) {
+    return <CustomerDashboardSkeleton />;
+  }
+
   if (!customerProfile) {
     return (
       <main className="page-shell narrow-page">
@@ -1824,137 +1470,164 @@ function CustomerDashboardPage({
         </div>
       </section>
 
-      <section className="dashboard-grid">
-        <article className="dashboard-card">
-          <p className="eyebrow">Notifications</p>
-          <div className="notification-list">
-            {notifications.map((item) => (
-              <div key={item.id} className="notification-item">
-                <strong>{item.title}</strong>
-                <span>{item.message}</span>
+      <section className="dashboard-grid" aria-busy={showSkeletons} aria-live="polite">
+        {showSkeletons ? (
+          <>
+            <article className="dashboard-card" aria-hidden="true">
+              <p className="eyebrow">Notifications</p>
+              <div className="skeleton-stack">
+                <div className="skeleton skeleton-line" style={{ width: "85%" }} />
+                <div className="skeleton skeleton-line" style={{ width: "72%" }} />
+                <div className="skeleton skeleton-line" style={{ width: "68%" }} />
               </div>
-            ))}
-            {notifications.length === 0 && <p className="meta-line">No notifications yet.</p>}
-          </div>
-        </article>
+            </article>
+            <article className="dashboard-card" aria-hidden="true">
+              <p className="eyebrow">Rental Summary</p>
+              <div className="mini-grid">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={`summary-skeleton-${index}`} className="skeleton skeleton-tile" />
+                ))}
+              </div>
+            </article>
+          </>
+        ) : (
+          <>
+            <article className="dashboard-card">
+              <p className="eyebrow">Notifications</p>
+              <div className="notification-list">
+                {notifications.map((item) => (
+                  <div key={item.id} className="notification-item">
+                    <strong>{item.title}</strong>
+                    <span>{item.message}</span>
+                  </div>
+                ))}
+                {notifications.length === 0 && <p className="meta-line">No notifications yet.</p>}
+              </div>
+            </article>
 
-        <article className="dashboard-card">
-          <p className="eyebrow">Rental Summary</p>
-          <div className="mini-grid">
-            <div>Total orders: {bookings.length}</div>
-            <div>
-              Active:{" "}
-              {bookings.filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status))
-                .length}
-            </div>
-            <div>Completed: {bookings.filter((item) => item.status === "COMPLETED").length}</div>
-            <div>Paid: Rs {bookings.reduce((total, item) => total + item.totalAmount, 0)}</div>
-          </div>
-        </article>
+            <article className="dashboard-card">
+              <p className="eyebrow">Rental Summary</p>
+              <div className="mini-grid">
+                <div>Total orders: {bookings.length}</div>
+                <div>
+                  Active:{" "}
+                  {bookings.filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status))
+                    .length}
+                </div>
+                <div>Completed: {bookings.filter((item) => item.status === "COMPLETED").length}</div>
+                <div>Paid: Rs {bookings.reduce((total, item) => total + item.totalAmount, 0)}</div>
+              </div>
+            </article>
+          </>
+        )}
       </section>
 
-      <section className="booking-stack">
-        {bookings.map((booking) => {
-          const review = reviews.find((item) => item.bookingId === booking.id);
-          return (
-            <article key={booking.id} className="booking-card">
-              <div className="booking-card-head">
-                <div>
-                  <span className="badge">{booking.productCategory}</span>
-                  <h3>{booking.productName}</h3>
-                  <p className="meta-line">
-                    {booking.trackingCode} | {formatStatus(booking.status)} | Rs {booking.totalAmount}
-                  </p>
-                </div>
-                <span className="status-banner compact">
-                  {booking.status === "COMPLETED" ? "Completed" : "Tracked by Rento admin"}
-                </span>
-              </div>
-              <StatusTrack status={booking.status} />
-              {booking.trackingEvents && booking.trackingEvents.length > 0 && (
-                <TrackingTimeline events={booking.trackingEvents} />
-              )}
-              <div className="booking-detail-grid">
-                <div>
-                  <strong>Shipment</strong>
-                  <span>
-                    {booking.shippingDetails.addressLine1}, {booking.shippingDetails.city},{" "}
-                    {booking.shippingDetails.postalCode}
-                  </span>
-                </div>
-                <div>
-                  <strong>Rental dates</strong>
-                  <span>
-                    {booking.shippingDetails.rentalStartDate} to{" "}
-                    {booking.shippingDetails.rentalEndDate}
-                  </span>
-                </div>
-                <div>
-                  <strong>Payment</strong>
-                  <span>
-                    {booking.shippingDetails.paymentMethod} |{" "}
-                    {booking.shippingDetails.paymentReference}
-                  </span>
-                </div>
-                <div>
-                  <strong>Condition record</strong>
-                  <span>{booking.shippingDetails.conditionPhotoUrl || "No photo URL added"}</span>
-                </div>
-                <div>
-                  <strong>Return pickup</strong>
-                  <span>{booking.shippingDetails.returnScheduledAt || "Not scheduled"}</span>
-                </div>
-                <div>
-                  <strong>Promo</strong>
-                  <span>{booking.promoCode ? booking.promoCode : "No promo applied"}</span>
-                </div>
-                <div>
-                  <strong>Discount</strong>
-                  <span>Rs {booking.discountAmount ?? 0}</span>
-                </div>
-              </div>
-              {booking.priceBreakdown && (
-                <div className="price-breakdown">
-                  <p className="panel-title">Price breakdown</p>
-                  <pre>{JSON.stringify(booking.priceBreakdown, null, 2)}</pre>
-                </div>
-              )}
-              {booking.status === "DELIVERED" ||
-              booking.status === "RETURN_PICKUP" ||
-              booking.status === "COMPLETED" ? (
-                <form
-                  className="stack-form review-form"
-                  onSubmit={(event) => onSubmitReview(event, booking)}
-                >
-                  <p className="panel-title">
-                    {review ? "Update your review" : "Rate this rental"}
-                  </p>
-                  <select name="rating" defaultValue={review?.rating ?? 5}>
-                    <option value="5">5 - Excellent</option>
-                    <option value="4">4 - Good</option>
-                    <option value="3">3 - Okay</option>
-                    <option value="2">2 - Needs improvement</option>
-                    <option value="1">1 - Poor</option>
-                  </select>
-                  <textarea
-                    name="comment"
-                    placeholder="How was the rental experience?"
-                    defaultValue={review?.comment}
-                  />
-                  <textarea
-                    name="conditionNote"
-                    placeholder="Return condition note or damage report"
-                    defaultValue={review?.conditionNote}
-                  />
-                  <button type="submit" className="secondary-button">
-                    Save review and condition note
-                  </button>
-                </form>
-              ) : null}
-            </article>
-          );
-        })}
-        {bookings.length === 0 && (
+      <section className="booking-stack" aria-busy={showSkeletons} aria-live="polite">
+        {showSkeletons
+          ? Array.from({ length: 2 }).map((_, index) => (
+              <BookingSkeletonCard key={`booking-skeleton-${index}`} />
+            ))
+          : bookings.map((booking) => {
+              const review = reviews.find((item) => item.bookingId === booking.id);
+              return (
+                <article key={booking.id} className="booking-card">
+                  <div className="booking-card-head">
+                    <div>
+                      <span className="badge">{booking.productCategory}</span>
+                      <h3>{booking.productName}</h3>
+                      <p className="meta-line">
+                        {booking.trackingCode} | {formatStatus(booking.status)} | Rs {booking.totalAmount}
+                      </p>
+                    </div>
+                    <span className="status-banner compact">
+                      {booking.status === "COMPLETED" ? "Completed" : "Tracked by Rento admin"}
+                    </span>
+                  </div>
+                  <StatusTrack status={booking.status} />
+                  {booking.trackingEvents && booking.trackingEvents.length > 0 && (
+                    <TrackingTimeline events={booking.trackingEvents} />
+                  )}
+                  <div className="booking-detail-grid">
+                    <div>
+                      <strong>Shipment</strong>
+                      <span>
+                        {booking.shippingDetails.addressLine1}, {booking.shippingDetails.city},{" "}
+                        {booking.shippingDetails.postalCode}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>Rental dates</strong>
+                      <span>
+                        {booking.shippingDetails.rentalStartDate} to{" "}
+                        {booking.shippingDetails.rentalEndDate}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>Payment</strong>
+                      <span>
+                        {booking.shippingDetails.paymentMethod} |{" "}
+                        {booking.shippingDetails.paymentReference}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>Condition record</strong>
+                      <span>{booking.shippingDetails.conditionPhotoUrl || "No photo URL added"}</span>
+                    </div>
+                    <div>
+                      <strong>Return pickup</strong>
+                      <span>{booking.shippingDetails.returnScheduledAt || "Not scheduled"}</span>
+                    </div>
+                    <div>
+                      <strong>Promo</strong>
+                      <span>{booking.promoCode ? booking.promoCode : "No promo applied"}</span>
+                    </div>
+                    <div>
+                      <strong>Discount</strong>
+                      <span>Rs {booking.discountAmount ?? 0}</span>
+                    </div>
+                  </div>
+                  {booking.priceBreakdown && (
+                    <div className="price-breakdown">
+                      <p className="panel-title">Price breakdown</p>
+                      <pre>{JSON.stringify(booking.priceBreakdown, null, 2)}</pre>
+                    </div>
+                  )}
+                  {booking.status === "DELIVERED" ||
+                  booking.status === "RETURN_PICKUP" ||
+                  booking.status === "COMPLETED" ? (
+                    <form
+                      className="stack-form review-form"
+                      onSubmit={(event) => onSubmitReview(event, booking)}
+                    >
+                      <p className="panel-title">
+                        {review ? "Update your review" : "Rate this rental"}
+                      </p>
+                      <select name="rating" defaultValue={review?.rating ?? 5}>
+                        <option value="5">5 - Excellent</option>
+                        <option value="4">4 - Good</option>
+                        <option value="3">3 - Okay</option>
+                        <option value="2">2 - Needs improvement</option>
+                        <option value="1">1 - Poor</option>
+                      </select>
+                      <textarea
+                        name="comment"
+                        placeholder="How was the rental experience?"
+                        defaultValue={review?.comment}
+                      />
+                      <textarea
+                        name="conditionNote"
+                        placeholder="Return condition note or damage report"
+                        defaultValue={review?.conditionNote}
+                      />
+                      <button type="submit" className="secondary-button">
+                        Save review and condition note
+                      </button>
+                    </form>
+                  ) : null}
+                </article>
+              );
+            })}
+        {!showSkeletons && bookings.length === 0 && (
           <article className="booking-card">
             <h3>No rentals yet</h3>
             <p>Explore approved listings and place your first order.</p>
@@ -1965,1002 +1638,64 @@ function CustomerDashboardPage({
   );
 }
 
-function AdvertiserPage({
-  advertiserUser,
-  hostDashboard,
-  statusMessage,
-  registeredAdvertiserEmail,
-  advertiserRegistrationStatus,
-  bookings,
-  onRegister,
-  onRefreshApproval,
-  onLogin,
-  onLogout,
-  onSubmitProduct,
-  onSubmitAvailability,
-  onSubmitPricingRule
-}: {
-  advertiserUser: User | null;
-  hostDashboard: HostDashboard | null;
-  statusMessage: string;
-  registeredAdvertiserEmail: string | null;
-  advertiserRegistrationStatus: User["accessStatus"] | null;
-  bookings: Booking[];
-  onRegister: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  onRefreshApproval: () => Promise<void>;
-  onLogin: (event: FormEvent<HTMLFormElement>, role: User["role"]) => Promise<void>;
-  onLogout: () => void;
-  onSubmitProduct: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  onSubmitAvailability: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  onSubmitPricingRule: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-}) {
+function CustomerDashboardSkeleton() {
   return (
     <main className="page-shell">
-      <section className="section-header">
-        <div>
-          <p className="eyebrow">Advertiser Page</p>
-          <h2>Register, wait for approval, then manage your rental income.</h2>
-          <p className="section-text">
-            Post products, track admin approval, watch ROI, and monitor bookings once access is approved.
-          </p>
-        </div>
-        <p className="status-banner compact">{statusMessage}</p>
-      </section>
-
-      <section className="auth-layout">
-        {!advertiserUser && (
-          <article className="auth-card">
-            <p className="eyebrow">Step 1</p>
-            <h3>Create advertiser account</h3>
-            <form className="stack-form" onSubmit={(event) => void onRegister(event)}>
-              <input name="name" type="text" placeholder="Full name" required />
-              <input name="email" type="email" placeholder="Login email" required />
-              <input
-                name="password"
-                type="password"
-                placeholder="Create password"
-                minLength={8}
-                required
-              />
-              <button type="submit" className="primary-button">
-                Register as advertiser
-              </button>
-            </form>
-          </article>
-        )}
-
-        {!advertiserUser && registeredAdvertiserEmail && advertiserRegistrationStatus !== "APPROVED" && (
-          <article className="auth-card approval-card">
-            <p className="eyebrow">Approval Status</p>
-            <h3>
-              {advertiserRegistrationStatus === "SUSPENDED"
-                ? "Access is currently suspended."
-                : "Awaiting approval"}
-            </h3>
-            <p className="meta-line">
-              {registeredAdvertiserEmail} | {advertiserRegistrationStatus ?? "PENDING"}
-            </p>
-            <p>
-              {advertiserRegistrationStatus === "SUSPENDED"
-                ? "Admin has suspended this advertiser account for now."
-                : "Your advertiser account is awaiting approval. Press refresh to check the latest status."}
-            </p>
-            <button type="button" className="secondary-button" onClick={() => void onRefreshApproval()}>
-              Refresh approval status
-            </button>
-          </article>
-        )}
-
-        {!advertiserUser && advertiserRegistrationStatus === "APPROVED" && (
-          <article className="auth-card">
-            <p className="eyebrow">Step 2</p>
-            <h3>Advertiser login</h3>
-            <form className="stack-form" onSubmit={(event) => void onLogin(event, "ADVERTISER")}>
-              <input
-                name="email"
-                type="email"
-                placeholder="Advertiser email"
-                defaultValue={registeredAdvertiserEmail ?? ""}
-                required
-              />
-              <input name="password" type="password" placeholder="Password" required />
-              <button type="submit" className="secondary-button">
-                Login to advertiser panel
-              </button>
-            </form>
-          </article>
-        )}
-      </section>
-
-      {advertiserUser && (
-        <section className="dashboard-grid">
-          <article className="dashboard-card">
-            <p className="eyebrow">Advertiser Dashboard</p>
-            <h3>{advertiserUser.name}</h3>
-            <p className="meta-line">
-              {advertiserUser.email} | {advertiserUser.accessStatus}
-            </p>
-            {hostDashboard ? (
-              <>
-                <div className="mini-grid four-up">
-                  <div>Total listings: {hostDashboard.summary.totalListings}</div>
-                  <div>Revenue: Rs {hostDashboard.summary.monthlyRevenue}</div>
-                  <div>Utilization: {hostDashboard.summary.utilizationRate}%</div>
-                  <div>Verified: {hostDashboard.summary.verifiedListings}</div>
-                </div>
-                <section className="chart-section">
-                  <div className="mini-grid four-up">
-                    <div>Portfolio revenue: Rs {hostDashboard.performance.portfolioRevenue}</div>
-                    <div>Portfolio cost: Rs {hostDashboard.performance.portfolioCost}</div>
-                    <div>ROI gain: {hostDashboard.performance.portfolioRoiPercent}%</div>
-                    <div>Bookings: {bookings.length}</div>
-                  </div>
-                  <div className="chart-grid">
-                    <div className="chart-card">
-                      <p className="eyebrow">Revenue vs Cost</p>
-                      <RoiTrendChart trend={hostDashboard.performance.roiTrend} />
-                    </div>
-                    <div className="chart-card">
-                      <p className="eyebrow">Listing Performance</p>
-                      <ListingPerformanceChart listings={hostDashboard.performance.listingPerformance} />
-                    </div>
-                  </div>
-                </section>
-                <div className="listing-stack">
-                  {hostDashboard.listings.map((listing) => (
-                    <div key={listing.id} className="listing-item">
-                      <strong>{listing.name}</strong>
-                      <span>
-                        {listing.city} | Rs {listing.dailyRate}/day |{" "}
-                        {listing.status}
-                      </span>
-                      <span>
-                        QA: {listing.qaStatus} | Photos: {listing.photoQuality?.averageScore ?? "-"}/100
-                      </span>
-                      {listing.qaNotes && (
-                        <span className="meta-line">QA note: {listing.qaNotes}</span>
-                      )}
-                      <span className="meta-line">
-                        Availability blocks: {listing.availabilityBlocks?.length ?? 0} | Pricing rules:{" "}
-                        {listing.pricingRules?.length ?? 0}
-                      </span>
-                    </div>
-                  ))}
-                  {hostDashboard.listings.length === 0 && (
-                    <p className="meta-line">No products posted yet.</p>
-                  )}
-                </div>
-              </>
-            ) : (
-              <p className="meta-line">Waiting for dashboard data.</p>
-            )}
-            <button type="button" className="secondary-button" onClick={onLogout}>
-              Logout advertiser
-            </button>
-          </article>
-
-          <article className="dashboard-card">
-            <p className="eyebrow">Post Advertisement</p>
-            <h3>Publish a product listing</h3>
-            <form className="stack-form" onSubmit={(event) => void onSubmitProduct(event)}>
-              <input name="name" type="text" placeholder="Product name" required />
-              <select name="category" defaultValue="Furniture" required>
-                {advertiserCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-              <input name="city" type="text" placeholder="City" required />
-              <input name="dailyRate" type="number" placeholder="Daily rent" min="1" required />
-              <input name="deposit" type="number" placeholder="Deposit amount" min="0" required />
-              <div className="form-grid">
-                <input
-                  name="leadTimeDays"
-                  type="number"
-                  placeholder="Lead time (days)"
-                  min="0"
-                />
-                <input
-                  name="bufferDays"
-                  type="number"
-                  placeholder="Buffer days"
-                  min="0"
-                />
-                <input
-                  name="minPhotoCount"
-                  type="number"
-                  placeholder="Min photo count"
-                  min="1"
-                />
-              </div>
-              <textarea name="description" placeholder="Describe the advertisement" required />
-              <textarea
-                name="imageUrls"
-                placeholder="Paste product image URLs, one per line"
-              />
-              <input name="tags" type="text" placeholder="Tags separated by commas" />
-              <button type="submit" className="primary-button">
-                Submit for admin approval
-              </button>
-            </form>
-          </article>
-
-          <article className="dashboard-card">
-            <p className="eyebrow">Availability Calendar</p>
-            <h3>Block dates when inventory is unavailable</h3>
-            <form className="stack-form" onSubmit={(event) => void onSubmitAvailability(event)}>
-              <select name="productId" required>
-                <option value="">Select product</option>
-                {hostDashboard?.listings.map((listing) => (
-                  <option key={listing.id} value={listing.id}>
-                    {listing.name}
-                  </option>
-                ))}
-              </select>
-              <div className="form-grid">
-                <label>
-                  Start date
-                  <input name="startDate" type="date" required />
-                </label>
-                <label>
-                  End date
-                  <input name="endDate" type="date" required />
-                </label>
-              </div>
-              <input name="reason" type="text" placeholder="Reason (optional)" />
-              <button type="submit" className="secondary-button">
-                Save availability block
-              </button>
-            </form>
-          </article>
-
-          <article className="dashboard-card">
-            <p className="eyebrow">Dynamic Pricing</p>
-            <h3>Create weekday, weekend, or seasonal pricing rules</h3>
-            <form className="stack-form" onSubmit={(event) => void onSubmitPricingRule(event)}>
-              <select name="productId" required>
-                <option value="">Select product</option>
-                {hostDashboard?.listings.map((listing) => (
-                  <option key={listing.id} value={listing.id}>
-                    {listing.name}
-                  </option>
-                ))}
-              </select>
-              <input name="label" type="text" placeholder="Rule label" required />
-              <select name="type" defaultValue="WEEKEND">
-                <option value="WEEKDAY">Weekday</option>
-                <option value="WEEKEND">Weekend</option>
-                <option value="SEASONAL">Seasonal</option>
-                <option value="DEMAND">Demand</option>
-              </select>
-              <div className="form-grid">
-                <input name="multiplier" type="number" step="0.05" placeholder="Multiplier" />
-                <input name="fixedDailyRate" type="number" placeholder="Fixed daily rate" />
-              </div>
-              <div className="form-grid">
-                <label>
-                  Start date
-                  <input name="startDate" type="date" />
-                </label>
-                <label>
-                  End date
-                  <input name="endDate" type="date" />
-                </label>
-              </div>
-              <input name="daysOfWeek" type="text" placeholder="Days (e.g. SAT,SUN)" />
-              <input name="demandThreshold" type="number" placeholder="Demand threshold" />
-              <button type="submit" className="secondary-button">
-                Save pricing rule
-              </button>
-            </form>
-          </article>
-
-          <article className="dashboard-card wide-card">
-            <p className="eyebrow">Booking Requests</p>
-            <div className="booking-stack compact">
-              {bookings.map((booking) => (
-                <div key={booking.id} className="booking-card small-card">
-                  <strong>{booking.productName}</strong>
-                  <span>{booking.customerName} | {formatStatus(booking.status)}</span>
-                  <span>Tracking {booking.trackingCode} | Rs {booking.totalAmount}</span>
-                </div>
-              ))}
-              {bookings.length === 0 && <p className="meta-line">No bookings for your listings yet.</p>}
-            </div>
-          </article>
-        </section>
-      )}
-
-      <section className="visual-gallery compact-gallery">
-        {advertiserVisuals.map((item) => (
-          <ImageCard key={item.title} item={item} />
-        ))}
-      </section>
-    </main>
-  );
-}
-
-function AdminPage({
-  adminUser,
-  adminDashboard,
-  filteredAdvertisers,
-  adminSearch,
-  adminFilter,
-  productSearch,
-  products,
-  bookings,
-  statusMessage,
-  onSearchChange,
-  onFilterChange,
-  onProductSearchChange,
-  onLogin,
-  onLogout,
-  onUpdateAccess,
-  onUpdateProductStatus,
-  onUpdateProductQa,
-  onUpdateBookingStatus,
-  onScheduleReturn,
-  onSubmitContent,
-  onToggleContentPublish,
-  onSubmitPromoCampaign,
-  onSubmitReferralCode,
-  qaNotesDraft,
-  onQaNotesChange,
-  returnScheduleDraft,
-  onReturnScheduleChange
-}: {
-  adminUser: User | null;
-  adminDashboard: AdminDashboard | null;
-  filteredAdvertisers: User[];
-  adminSearch: string;
-  adminFilter: AdminFilter;
-  productSearch: string;
-  products: Product[];
-  bookings: Booking[];
-  statusMessage: string;
-  onSearchChange: (value: string) => void;
-  onFilterChange: (filter: AdminFilter) => void;
-  onProductSearchChange: (value: string) => void;
-  onLogin: (event: FormEvent<HTMLFormElement>, role: User["role"]) => Promise<void>;
-  onLogout: () => void;
-  onUpdateAccess: (userId: string, accessStatus: User["accessStatus"]) => Promise<void>;
-  onUpdateProductStatus: (productId: string, status: ListingStatus) => void;
-  onUpdateProductQa: (productId: string, status: QaStatus) => void;
-  onUpdateBookingStatus: (bookingId: string, status: BookingStatus) => void;
-  onScheduleReturn: (bookingId: string) => void;
-  onSubmitContent: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  onToggleContentPublish: (block: ContentBlock) => Promise<void>;
-  onSubmitPromoCampaign: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  onSubmitReferralCode: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  qaNotesDraft: Record<string, string>;
-  onQaNotesChange: (productId: string, value: string) => void;
-  returnScheduleDraft: Record<string, string>;
-  onReturnScheduleChange: (bookingId: string, value: string) => void;
-}) {
-  const filterCards = [
-    { label: "Total advertisers", value: adminDashboard?.summary.totalAdvertisers ?? 0, key: "ALL" as AdminFilter },
-    { label: "Approved", value: adminDashboard?.summary.approved ?? 0, key: "APPROVED" as AdminFilter },
-    { label: "Pending", value: adminDashboard?.summary.pending ?? 0, key: "PENDING" as AdminFilter },
-    { label: "Suspended", value: adminDashboard?.summary.suspended ?? 0, key: "SUSPENDED" as AdminFilter }
-  ];
-  const contentBlocks = adminDashboard?.contentBlocks ?? [];
-  const promoCampaigns = adminDashboard?.promoCampaigns ?? [];
-  const referralCodes = adminDashboard?.referralCodes ?? [];
-  const risk = adminDashboard?.risk;
-  const analytics = adminDashboard?.analytics;
-  const auditLogs = adminDashboard?.recentAuditLogs ?? [];
-  const filteredProducts = products.filter((product) =>
-    `${product.name} ${product.owner ?? ""} ${product.category}`
-      .toLowerCase()
-      .includes(productSearch.toLowerCase())
-  );
-
-  return (
-    <main className="page-shell">
-      <section className="section-header">
-        <div>
-          <p className="eyebrow">Admin Control Page</p>
-          <h2>Monitor registrations, listings, bookings, and delivery progress.</h2>
-          <p className="section-text">
-            Admin can approve advertisers, moderate product listings, and move rental orders through shipment stages.
-          </p>
-        </div>
-        <div className="status-banner compact">
-          <strong>{statusMessage}</strong>
-          <span className="meta-line">
-            Pending QA: {adminDashboard?.summary.pendingQaListings ?? 0}
-          </span>
+      <section className="section-header" aria-busy="true" aria-live="polite">
+        <div className="skeleton-stack">
+          <div className="skeleton skeleton-line large" style={{ width: "45%" }} />
+          <div className="skeleton skeleton-line" style={{ width: "70%" }} />
         </div>
       </section>
 
-      <section className="admin-layout">
-        <article className="auth-card">
-          <p className="eyebrow">Admin Login</p>
-          <h3>Enter the control room</h3>
-          <p className="meta-line">
-            Default admin: <strong>admin@rento.local</strong> / <strong>Admin@12345</strong>
-          </p>
-          <form className="stack-form" onSubmit={(event) => void onLogin(event, "ADMIN")}>
-            <input name="email" type="email" placeholder="Admin email" required />
-            <input name="password" type="password" placeholder="Admin password" required />
-            <button type="submit" className="primary-button">
-              Login as admin
-            </button>
-          </form>
-        </article>
-
-        <article className="dashboard-card wide-card">
-          <p className="eyebrow">Registration Dashboard</p>
-          {adminUser && adminDashboard ? (
-            <>
-              <div className="filter-card-grid">
-                {filterCards.map((card) => (
-                  <button
-                    key={card.key}
-                    type="button"
-                    className={
-                      adminFilter === card.key
-                        ? "filter-summary-card active"
-                        : "filter-summary-card"
-                    }
-                    onClick={() => onFilterChange(card.key)}
-                  >
-                    <span>{card.label}</span>
-                    <strong>{card.value}</strong>
-                  </button>
-                ))}
-              </div>
-              <div className="search-row">
-                <input
-                  type="text"
-                  value={adminSearch}
-                  onChange={(event) => onSearchChange(event.target.value)}
-                  placeholder="Search through Login ID"
-                />
-              </div>
-
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Login ID</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAdvertisers.map((user) => (
-                      <tr key={user.id}>
-                        <td>{user.name}</td>
-                        <td>{user.email}</td>
-                        <td>{user.accessStatus}</td>
-                        <td className="action-row">
-                          <button
-                            type="button"
-                            className="tiny-button"
-                            onClick={() => void onUpdateAccess(user.id, "APPROVED")}
-                          >
-                            Accept
-                          </button>
-                          <button
-                            type="button"
-                            className="tiny-button muted"
-                            onClick={() => void onUpdateAccess(user.id, "PENDING")}
-                          >
-                            Hold
-                          </button>
-                          <button
-                            type="button"
-                            className="tiny-button warning"
-                            onClick={() => void onUpdateAccess(user.id, "SUSPENDED")}
-                          >
-                            Suspend
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredAdvertisers.length === 0 && (
-                  <p className="meta-line">No login IDs matched this search or filter.</p>
-                )}
-              </div>
-              <button type="button" className="secondary-button" onClick={onLogout}>
-                Logout admin
-              </button>
-            </>
-          ) : (
-            <p className="meta-line">Login to review advertiser registrations and change their access.</p>
-          )}
-        </article>
-      </section>
-
-      {adminUser && (
-        <>
-          <section className="dashboard-card moderation-panel">
-            <div className="section-header inner-header">
-              <div>
-                <p className="eyebrow">Inventory QA</p>
-                <h3>Approve or reject listings based on photo quality.</h3>
-              </div>
-            </div>
-            <div className="moderation-list">
-              {products
-                .filter((product) => product.qaStatus !== "APPROVED")
-                .map((product) => (
-                  <article key={`qa-${product.id}`} className="moderation-item">
-                    <ProductImages product={product} />
-                    <div>
-                      <h4>{product.name}</h4>
-                      <p className="meta-line">
-                        QA status: {product.qaStatus} | Photos: {product.photoQuality?.averageScore ?? 0}/100
-                      </p>
-                      <textarea
-                        className="qa-note"
-                        value={qaNotesDraft[product.id] ?? product.qaNotes ?? ""}
-                        onChange={(event) => onQaNotesChange(product.id, event.target.value)}
-                        placeholder="QA notes for host"
-                      />
-                    </div>
-                    <div className="action-row">
-                      <button
-                        type="button"
-                        className="tiny-button"
-                        onClick={() => onUpdateProductQa(product.id, "APPROVED")}
-                      >
-                        Approve QA
-                      </button>
-                      <button
-                        type="button"
-                        className="tiny-button warning"
-                        onClick={() => onUpdateProductQa(product.id, "REJECTED")}
-                      >
-                        Reject QA
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              {products.filter((product) => product.qaStatus !== "APPROVED").length === 0 && (
-                <p className="meta-line">No pending QA items.</p>
-              )}
-            </div>
-          </section>
-          <section className="dashboard-card moderation-panel">
-            <div className="section-header inner-header">
-              <div>
-                <p className="eyebrow">Product Moderation</p>
-                <h3>Approve listings before customers can rent them.</h3>
-              </div>
-              <input
-                type="search"
-                value={productSearch}
-                onChange={(event) => onProductSearchChange(event.target.value)}
-                placeholder="Search products or advertiser"
-              />
-            </div>
-            <div className="moderation-list">
-              {filteredProducts.map((product) => (
-                <article key={product.id} className="moderation-item">
-                  <ProductImages product={product} />
-                  <div>
-                    <h4>{product.name}</h4>
-                    <p className="meta-line">
-                      {product.owner ?? "Advertiser"} | {product.city} | Rs {product.dailyRate}/day
-                    </p>
-                    <span className="badge">{product.status}</span>
-                    <span className="badge qa-badge">QA {product.qaStatus}</span>
-                  </div>
-                  <div className="action-row">
-                    <button
-                      type="button"
-                      className="tiny-button"
-                      onClick={() => onUpdateProductStatus(product.id, "APPROVED")}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      className="tiny-button muted"
-                      onClick={() => onUpdateProductStatus(product.id, "PENDING")}
-                    >
-                      Hold
-                    </button>
-                    <button
-                      type="button"
-                      className="tiny-button warning"
-                      onClick={() => onUpdateProductStatus(product.id, "SUSPENDED")}
-                    >
-                      Suspend
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="dashboard-card moderation-panel">
-            <p className="eyebrow">Booking Monitor</p>
-            <div className="booking-stack compact">
-              {bookings.map((booking) => (
-                <article key={booking.id} className="booking-card small-card">
-                  <strong>{booking.productName}</strong>
-                  <span>
-                    {booking.customerName} | {booking.trackingCode} | {formatStatus(booking.status)}
-                  </span>
-                  <div className="action-row">
-                    {bookingStatuses.map((status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        className={
-                          booking.status === status
-                            ? "tiny-button active-chip"
-                            : "tiny-button"
-                        }
-                        onClick={() => onUpdateBookingStatus(booking.id, status)}
-                      >
-                        {formatStatus(status)}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="return-schedule">
-                    <input
-                      type="date"
-                      value={
-                        returnScheduleDraft[booking.id] ??
-                        booking.shippingDetails.returnScheduledAt ??
-                        ""
-                      }
-                      onChange={(event) =>
-                        onReturnScheduleChange(booking.id, event.target.value)
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="tiny-button"
-                      onClick={() => onScheduleReturn(booking.id)}
-                    >
-                      Schedule return
-                    </button>
-                  </div>
-                </article>
-              ))}
-              {bookings.length === 0 && <p className="meta-line">No bookings placed yet.</p>}
-            </div>
-          </section>
-
-          <section className="dashboard-card">
-            <p className="eyebrow">Risk Dashboard</p>
-            {risk ? (
-              <>
-                <div className="mini-grid">
-                  <div>Cancelled bookings: {risk.cancelledBookings}</div>
-                  <div>High-damage listings: {risk.highDamageListings.length}</div>
-                  <div>Flagged orders: {risk.suspiciousOrders.length}</div>
-                </div>
-                <div className="listing-stack">
-                  {risk.highDamageListings.map((item) => (
-                    <div key={item.productId} className="listing-item">
-                      <strong>{item.name}</strong>
-                      <span>Damage reports: {item.damageReports}</span>
-                    </div>
-                  ))}
-                  {risk.suspiciousOrders.map((item) => (
-                    <div key={item.bookingId} className="listing-item">
-                      <strong>{item.productName}</strong>
-                      <span>Rs {item.totalAmount} | {item.reason}</span>
-                    </div>
-                  ))}
-                  {risk.highDamageListings.length === 0 && risk.suspiciousOrders.length === 0 && (
-                    <p className="meta-line">No current risk flags.</p>
-                  )}
-                </div>
-              </>
-            ) : (
-              <p className="meta-line">Risk analytics are loading.</p>
-            )}
-          </section>
-
-          <section className="dashboard-card">
-            <p className="eyebrow">Analytics Overview</p>
-            {analytics ? (
-              <div className="mini-grid four-up">
-                <div>Total sessions: {analytics.totalSessions}</div>
-                <div>Product views: {analytics.productViews}</div>
-                <div>Checkout starts: {analytics.checkoutStarts}</div>
-                <div>Bookings: {analytics.bookingCompletions}</div>
-                <div>Conversion: {analytics.conversionRate}%</div>
-                <div>Retention: {analytics.retentionRate}%</div>
-                <div>Avg LTV: Rs {analytics.averageLtv}</div>
-                <div>Utilization: {analytics.utilizationRate}%</div>
-              </div>
-            ) : (
-              <p className="meta-line">Analytics data pending.</p>
-            )}
-          </section>
-
-          <section className="dashboard-card">
-            <p className="eyebrow">Content Management</p>
-            <form className="stack-form" onSubmit={(event) => void onSubmitContent(event)}>
-              <input name="key" type="text" placeholder="Content key (e.g. home-hero)" required />
-              <input name="title" type="text" placeholder="Title" required />
-              <textarea name="body" placeholder="Body text" required />
-              <select name="type" defaultValue="HERO">
-                <option value="HERO">Hero</option>
-                <option value="BANNER">Banner</option>
-                <option value="FAQ">FAQ</option>
-                <option value="POLICY">Policy</option>
-              </select>
-              <button type="submit" className="secondary-button">
-                Create content block
-              </button>
-            </form>
-            <div className="listing-stack">
-              {contentBlocks.map((block) => (
-                <div key={block.id} className="listing-item">
-                  <strong>{block.title}</strong>
-                  <span>
-                    {block.type} | {block.isPublished ? "Published" : "Draft"}
-                  </span>
-                  <button
-                    type="button"
-                    className="tiny-button"
-                    onClick={() => void onToggleContentPublish(block)}
-                  >
-                    {block.isPublished ? "Unpublish" : "Publish"}
-                  </button>
-                </div>
-              ))}
-              {contentBlocks.length === 0 && <p className="meta-line">No content blocks yet.</p>}
-            </div>
-          </section>
-
-          <section className="dashboard-card">
-            <p className="eyebrow">Marketing Tools</p>
-            <div className="admin-layout">
-              <div className="card">
-                <p className="panel-title">Promo campaigns</p>
-                <form className="stack-form" onSubmit={(event) => void onSubmitPromoCampaign(event)}>
-                  <input name="code" type="text" placeholder="Promo code" required />
-                  <input name="description" type="text" placeholder="Description" required />
-                  <select name="discountType" defaultValue="PERCENT">
-                    <option value="PERCENT">Percent</option>
-                    <option value="FIXED">Fixed</option>
-                  </select>
-                  <div className="form-grid">
-                    <input name="value" type="number" placeholder="Value" min="1" required />
-                    <input name="minOrderAmount" type="number" placeholder="Min order" />
-                  </div>
-                  <div className="form-grid">
-                    <label>
-                      Starts
-                      <input name="startsAt" type="date" required />
-                    </label>
-                    <label>
-                      Ends
-                      <input name="endsAt" type="date" required />
-                    </label>
-                  </div>
-                  <input name="usageLimit" type="number" placeholder="Usage limit" />
-                  <button type="submit" className="secondary-button">Create promo</button>
-                </form>
-                <div className="listing-stack">
-                  {promoCampaigns.map((promo) => (
-                    <div key={promo.id} className="listing-item">
-                      <strong>{promo.code}</strong>
-                      <span>
-                        {promo.discountType} {promo.value} | Used {promo.usedCount}/{promo.usageLimit ?? "∞"}
-                      </span>
-                    </div>
-                  ))}
-                  {promoCampaigns.length === 0 && <p className="meta-line">No promos yet.</p>}
-                </div>
-              </div>
-              <div className="card">
-                <p className="panel-title">Referral codes</p>
-                <form className="stack-form" onSubmit={(event) => void onSubmitReferralCode(event)}>
-                  <input name="code" type="text" placeholder="Referral code" required />
-                  <input name="rewardAmount" type="number" placeholder="Reward amount" min="1" required />
-                  <button type="submit" className="secondary-button">Create referral</button>
-                </form>
-                <div className="listing-stack">
-                  {referralCodes.map((referral) => (
-                    <div key={referral.id} className="listing-item">
-                      <strong>{referral.code}</strong>
-                      <span>Reward Rs {referral.rewardAmount} | Used {referral.usageCount}</span>
-                    </div>
-                  ))}
-                  {referralCodes.length === 0 && <p className="meta-line">No referrals yet.</p>}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="dashboard-card">
-            <p className="eyebrow">Audit Log</p>
-            <div className="listing-stack">
-              {auditLogs.map((log) => (
-                <div key={log.id} className="listing-item">
-                  <strong>{log.action}</strong>
-                  <span>
-                    {log.targetType} {log.targetId ?? ""} | {new Date(log.createdAt).toLocaleString()}
-                  </span>
-                </div>
-              ))}
-              {auditLogs.length === 0 && <p className="meta-line">No audit logs yet.</p>}
-            </div>
-          </section>
-        </>
-      )}
-    </main>
-  );
-}
-
-function ProductImages({
-  product
-}: {
-  product: Product;
-}) {
-  const images = getProductImages(product);
-
-  return (
-    <div className="product-image-shell">
-      <img src={images[0]} alt={product.name} onError={handleImageError(product.category)} />
-      <div className="image-strip">
-        {images.slice(0, 3).map((image) => (
-          <span key={image} className="image-thumb" style={{ backgroundImage: `url(${image})` }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TrustChip({ label, value }: { label: string; value: string | number }) {
-  return (
-    <motion.div
-      className="trust-chip"
-      initial={{ opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.4 }}
-      transition={{ duration: 0.35 }}
-    >
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </motion.div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <motion.div
-      className="stat-box"
-      initial={{ opacity: 0, scale: 0.96 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, amount: 0.5 }}
-      transition={{ duration: 0.35 }}
-    >
-      <strong>{value}</strong>
-      <span className="stat-label">{label}</span>
-    </motion.div>
-  );
-}
-
-function RatingSummary({ product }: { product: Product }) {
-  return (
-    <p className="meta-line">
-      {product.reviewCount === 0
-        ? "No reviews yet"
-        : `${product.averageRating.toFixed(1)}/5 from ${product.reviewCount} reviews`} | Damage notes: {product.damageReports}
-    </p>
-  );
-}
-
-function StatusTrack({ status }: { status: BookingStatus }) {
-  if (status === "CANCELLED") {
-    return (
-      <div className="status-track">
-        <span className="status-step active">Cancelled</span>
-      </div>
-    );
-  }
-
-  const activeIndex = bookingStatuses.indexOf(status);
-
-  return (
-    <div className="status-track">
-      {bookingStatuses.map((item, index) => (
-        <span key={item} className={index <= activeIndex ? "status-step active" : "status-step"}>
-          {formatStatus(item)}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function TrackingTimeline({ events }: { events: TrackingEvent[] }) {
-  return (
-    <div className="tracking-timeline">
-      {events.map((event, index) => (
-        <div key={`${event.status}-${index}`} className="tracking-item">
-          <span className="tracking-dot" aria-hidden="true" />
-          <div>
-            <strong>{formatStatus(event.status)}</strong>
-            <span className="meta-line">
-              {event.occurredAt} | {event.message}
-            </span>
+      <section className="dashboard-grid">
+        <article className="dashboard-card" aria-hidden="true">
+          <p className="eyebrow">Notifications</p>
+          <div className="skeleton-stack">
+            <div className="skeleton skeleton-line" style={{ width: "82%" }} />
+            <div className="skeleton skeleton-line" style={{ width: "70%" }} />
+            <div className="skeleton skeleton-line" style={{ width: "64%" }} />
           </div>
+        </article>
+        <article className="dashboard-card" aria-hidden="true">
+          <p className="eyebrow">Rental Summary</p>
+          <div className="mini-grid">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={`summary-loading-${index}`} className="skeleton skeleton-tile" />
+            ))}
+          </div>
+        </article>
+      </section>
+
+      <section className="booking-stack">
+        <BookingSkeletonCard />
+        <BookingSkeletonCard />
+      </section>
+    </main>
+  );
+}
+
+function BookingSkeletonCard() {
+  return (
+    <article className="booking-card skeleton-card" aria-hidden="true">
+      <div className="booking-card-head">
+        <div className="skeleton-stack">
+          <span className="skeleton skeleton-chip" />
+          <div className="skeleton skeleton-line large" style={{ width: "58%" }} />
+          <div className="skeleton skeleton-line" style={{ width: "68%" }} />
         </div>
-      ))}
-    </div>
-  );
-}
-
-function ImageCard({
-  item
-}: {
-  item: MediaCard;
-}) {
-  return (
-    <motion.article
-      className="image-card"
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.4 }}
-      whileHover={{ y: -6 }}
-    >
-      <img src={item.image} alt={item.title} onError={handleImageError(item.accent ?? "Furniture")} />
-      <div className="image-card-copy">
-        {item.accent && <span className="badge warm-badge">{item.accent}</span>}
-        <h3>{item.title}</h3>
-        <p>{item.note}</p>
+        <span className="skeleton skeleton-chip skeleton-chip-wide" />
       </div>
-    </motion.article>
-  );
-}
-
-function FeatureVideoCard({ feature }: { feature: VideoFeature }) {
-  return (
-    <div className="feature-video-card">
-      <div className="video-shell">
-        <video
-          src={feature.video}
-          poster={feature.poster}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-          }}
-        />
-        <img src={feature.poster} alt={feature.title} onError={handleImageError("Furniture")} />
+      <div className="skeleton skeleton-track" />
+      <div className="booking-detail-grid">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={`booking-detail-${index}`} className="skeleton-stack">
+            <div className="skeleton skeleton-line small" style={{ width: "50%" }} />
+            <div className="skeleton skeleton-line" style={{ width: "80%" }} />
+          </div>
+        ))}
       </div>
-      <div className="feature-video-copy">
-        <p className="eyebrow">Premium motion</p>
-        <h3>{feature.title}</h3>
-        <p>{feature.note}</p>
-      </div>
-    </div>
-  );
-}
-
-function TestimonialCard({ item }: { item: Testimonial }) {
-  return (
-    <motion.article
-      className="story-card testimonial-card"
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.4 }}
-    >
-      <p className="testimonial-quote">"{item.quote}"</p>
-      <strong>{item.name}</strong>
-      <span className="meta-line">{item.role}</span>
-    </motion.article>
+    </article>
   );
 }
 
@@ -2972,83 +1707,6 @@ function Footer() {
   );
 }
 
-function RoiTrendChart({
-  trend
-}: {
-  trend: Array<{ label: string; revenue: number; cost: number }>;
-}) {
-  const maxValue = Math.max(1, ...trend.flatMap((item) => [item.revenue, item.cost]));
-
-  return (
-    <div className="chart-wrap">
-      {trend.map((point) => (
-        <div key={point.label} className="trend-col">
-          <div className="trend-bars">
-            <span
-              className="bar revenue-bar"
-              style={{ height: `${(point.revenue / maxValue) * 100}%` }}
-              title={`Revenue Rs ${point.revenue}`}
-            />
-            <span
-              className="bar cost-bar"
-              style={{ height: `${(point.cost / maxValue) * 100}%` }}
-              title={`Cost Rs ${point.cost}`}
-            />
-          </div>
-          <span className="trend-label">{point.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ListingPerformanceChart({
-  listings
-}: {
-  listings: HostDashboard["performance"]["listingPerformance"];
-}) {
-  const maxRoi = Math.max(1, ...listings.map((item) => item.roiPercent));
-
-  return (
-    <div className="listing-chart-list">
-      {listings.map((item) => (
-        <div key={item.productId} className="listing-chart-row">
-          <div className="listing-chart-head">
-            <strong>{item.name}</strong>
-            <span>{item.roiPercent}% ROI</span>
-          </div>
-          <div className="listing-chart-track">
-            <span
-              className="listing-chart-fill"
-              style={{ width: `${(item.roiPercent / maxRoi) * 100}%` }}
-            />
-          </div>
-          <p className="meta-line">
-            {item.views} views | {item.inquiries} inquiries | {item.bookedDays} booked days
-          </p>
-        </div>
-      ))}
-      {listings.length === 0 && <p className="meta-line">Post a listing to see ROI performance.</p>}
-    </div>
-  );
-}
-
-function getCategoryImages(category: string) {
-  return categoryImages[category] ?? categoryImages.Furniture;
-}
-
-function getProductImages(product: Product) {
-  return product.images.length > 0 ? product.images : getCategoryImages(product.category);
-}
-
-function handleImageError(category: string) {
-  return (event: SyntheticEvent<HTMLImageElement>) => {
-    const fallback = getCategoryImages(category)[0] ?? categoryImages.Furniture[0];
-    if (event.currentTarget.src !== fallback) {
-      event.currentTarget.src = fallback;
-    }
-  };
-}
 
 function readInitialTheme(): ThemeMode {
   const savedTheme = localStorage.getItem(themeKey);
@@ -3078,13 +1736,6 @@ function getRentalDays(startDate: string, endDate: string) {
   }
 
   return Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-}
-
-function formatStatus(status: string) {
-  return status
-    .split("_")
-    .map((item) => item.charAt(0) + item.slice(1).toLowerCase())
-    .join(" ");
 }
 
 function getRouteFromHash(): Route {

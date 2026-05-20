@@ -17,8 +17,16 @@ The API serves marketplace data, authentication, and booking workflows for custo
 ## Environment
 - apps/api/.env: DATABASE_URL and admin seed credentials.
 
+## Kafka
+- Set KAFKA_BROKERS (e.g. localhost:9092) to enable event publishing.
+- Run the worker with: npm run dev:worker
+- Optional local broker: docker compose -f docker-compose.kafka.yml up
+
 ## Local Run
 - npm run db:generate
 - npm run db:push
 - npm run db:seed
 - npm run dev:api
+
+## Security
+- See docs/security.md for the production checklist.

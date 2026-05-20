@@ -81,6 +81,7 @@ export type Product = {
   photoQuality?: PhotoQuality;
   availabilityBlocks?: AvailabilityBlock[];
   pricingRules?: PricingRule[];
+  pricingRulesCount?: number;
   averageRating: number;
   reviewCount: number;
 };
@@ -463,7 +464,7 @@ export function getAdminDashboard(token: string) {
 }
 
 export function getAdvertiserApprovalStatus(email: string) {
-  return apiRequest<{ email: string; accessStatus: User["accessStatus"] }>(
+  return apiRequest<{ accessStatus: User["accessStatus"] }>(
     `/api/auth/advertiser-status?email=${encodeURIComponent(email)}`
   );
 }
@@ -659,7 +660,7 @@ export function scheduleReturnPickup(
 }
 
 export function recordAnalyticsEvent(payload: AnalyticsEventPayload) {
-  return apiRequest<ApiMessage & { event?: unknown }>("/api/analytics", {
+  return apiRequest<ApiMessage>("/api/analytics", {
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(payload)

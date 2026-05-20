@@ -6,7 +6,10 @@ const blockedPatterns = [
   /\b(select|insert|update|delete|drop|alter)\b\s+/i,
   /\bunion\b\s+\bselect\b/i,
   /\$where/i,
-  /\bwaitfor\b\s+\bdelay\b/i
+  /\bwaitfor\b\s+\bdelay\b/i,
+  /\.\.\//,
+  /\.\.\\/,
+  /\b(?:sleep|benchmark)\b\s*\(/i
 ];
 
 export function wafGuard() {
