@@ -668,14 +668,22 @@ export function recordAnalyticsEvent(payload: AnalyticsEventPayload) {
 }
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-  const response = await fetch(`${apiBaseUrl}${path}`, options);
-  const data = (await response.json().catch(() => ({}))) as T;
+  try {
+    const response = await fetch(`${apiBaseUrl}${path}`, options);
+    const data = (await response.json().catch(() => ({}))) as T;
 
-  return {
-    ok: response.ok,
-    status: response.status,
-    data
-  };
+    return {
+      ok: response.ok,
+      status: response.status,
+      data
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      data: { message: "Backend is not reachable. Please start the API and try again." } as T
+    };
+  }
 }
 
 function jsonHeaders() {

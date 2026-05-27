@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import type { Booking, HostDashboard, User } from "../api";
 import { advertiserCategories, advertiserVisuals } from "../content";
+import { LoadingButton, PremiumAlert, type FeedbackTone } from "../components/feedback";
 import { ImageCard } from "../components/marketplace";
 import { formatStatus } from "../utils/booking";
 
@@ -9,6 +10,8 @@ export function AdvertiserPage({
   hostDashboard,
   isLoading,
   statusMessage,
+  statusTone,
+  pendingRequest,
   registeredAdvertiserEmail,
   advertiserRegistrationStatus,
   bookings,
@@ -24,6 +27,8 @@ export function AdvertiserPage({
   hostDashboard: HostDashboard | null;
   isLoading: boolean;
   statusMessage: string;
+  statusTone: FeedbackTone;
+  pendingRequest: string | null;
   registeredAdvertiserEmail: string | null;
   advertiserRegistrationStatus: User["accessStatus"] | null;
   bookings: Booking[];
@@ -47,7 +52,11 @@ export function AdvertiserPage({
             Post products, track admin approval, watch ROI, and monitor bookings once access is approved.
           </p>
         </div>
-        <p className="status-banner compact">{statusMessage}</p>
+        <PremiumAlert
+          message={statusMessage}
+          tone={pendingRequest ? "loading" : statusTone}
+          isBusy={Boolean(pendingRequest)}
+        />
       </section>
 
       <section className="auth-layout">
@@ -65,9 +74,13 @@ export function AdvertiserPage({
                 minLength={8}
                 required
               />
-              <button type="submit" className="primary-button">
+              <LoadingButton
+                type="submit"
+                isLoading={pendingRequest === "advertiser-register"}
+                loadingLabel="Submitting..."
+              >
                 Register as advertiser
-              </button>
+              </LoadingButton>
             </form>
           </article>
         )}
@@ -88,7 +101,12 @@ export function AdvertiserPage({
                 ? "Admin has suspended this advertiser account for now."
                 : "Your advertiser account is awaiting approval. Press refresh to check the latest status."}
             </p>
-            <button type="button" className="secondary-button" onClick={() => void onRefreshApproval()}>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={Boolean(pendingRequest)}
+              onClick={() => void onRefreshApproval()}
+            >
               Refresh approval status
             </button>
           </article>
@@ -107,9 +125,14 @@ export function AdvertiserPage({
                 required
               />
               <input name="password" type="password" placeholder="Password" required />
-              <button type="submit" className="secondary-button">
+              <LoadingButton
+                type="submit"
+                className="secondary-button"
+                isLoading={pendingRequest === "advertiser-login"}
+                loadingLabel="Signing in..."
+              >
                 Login to advertiser panel
-              </button>
+              </LoadingButton>
             </form>
           </article>
         )}
@@ -225,9 +248,13 @@ export function AdvertiserPage({
                 placeholder="Paste product image URLs, one per line"
               />
               <input name="tags" type="text" placeholder="Tags separated by commas" />
-              <button type="submit" className="primary-button">
+              <LoadingButton
+                type="submit"
+                isLoading={pendingRequest === "submit-product"}
+                loadingLabel="Sending to QA..."
+              >
                 Submit for admin approval
-              </button>
+              </LoadingButton>
             </form>
           </article>
 
@@ -254,9 +281,14 @@ export function AdvertiserPage({
                 </label>
               </div>
               <input name="reason" type="text" placeholder="Reason (optional)" />
-              <button type="submit" className="secondary-button">
+              <LoadingButton
+                type="submit"
+                className="secondary-button"
+                isLoading={pendingRequest === "availability"}
+                loadingLabel="Saving..."
+              >
                 Save availability block
-              </button>
+              </LoadingButton>
             </form>
           </article>
 
@@ -295,9 +327,14 @@ export function AdvertiserPage({
               </div>
               <input name="daysOfWeek" type="text" placeholder="Days (e.g. SAT,SUN)" />
               <input name="demandThreshold" type="number" placeholder="Demand threshold" />
-              <button type="submit" className="secondary-button">
+              <LoadingButton
+                type="submit"
+                className="secondary-button"
+                isLoading={pendingRequest === "pricing"}
+                loadingLabel="Saving..."
+              >
                 Save pricing rule
-              </button>
+              </LoadingButton>
             </form>
           </article>
 

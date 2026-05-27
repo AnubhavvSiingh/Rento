@@ -64,6 +64,7 @@ import {
   TrustChip,
   TrustChipSkeleton
 } from "./components/marketplace";
+import { PremiumAlert, type FeedbackTone } from "./components/feedback";
 import { PremiumSelect } from "./components/PremiumSelect";
 import { formatStatus } from "./utils/booking";
 import { AdminPage } from "./pages/AdminPage";
@@ -150,6 +151,8 @@ export default function App() {
   const [hostDashboard, setHostDashboard] = useState<HostDashboard | null>(null);
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null);
   const [statusMessage, setStatusMessage] = useState("Choose how you want to enter Rento.");
+  const [statusTone, setStatusTone] = useState<FeedbackTone>("info");
+  const [pendingRequest, setPendingRequest] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [customerAuthMode, setCustomerAuthMode] = useState<CustomerAuthMode>("signup");
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(() => null);
@@ -263,6 +266,15 @@ export default function App() {
     }
   }, [registeredAdvertiserEmail]);
 
+  function showStatus(message: string, tone: FeedbackTone = "info") {
+    setStatusMessage(message);
+    setStatusTone(tone);
+  }
+
+  function finishRequest(key: string) {
+    setPendingRequest((current) => (current === key ? null : current));
+  }
+
   async function loadMarketplace() {
     const shouldShowSkeleton = products.length === 0;
     if (shouldShowSkeleton) {
@@ -274,7 +286,7 @@ export default function App() {
       setProducts(marketplace.products);
     } catch (error) {
       console.error(error);
-      setStatusMessage("Unable to load marketplace data.");
+      showStatus("Unable to load marketplace data.", "error");
     } finally {
       if (shouldShowSkeleton) {
         setIsMarketplaceLoading(false);
@@ -404,6 +416,8 @@ export default function App() {
 
   async function registerAdvertiser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const requestKey = "advertiser-register";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").toLowerCase();
     const payload = {
@@ -413,7 +427,10 @@ export default function App() {
     };
 
     const response = await registerAdvertiserAccount(payload);
-    setStatusMessage(response.data.message ?? "Advertiser account submitted.");
+    showStatus(
+      response.data.message ?? "Advertiser account submitted.",
+      response.ok ? "success" : "error"
+    );
 
     if (response.ok) {
       setRegisteredAdvertiserEmail(email);
@@ -423,10 +440,13 @@ export default function App() {
         void loadAdminDashboard(adminToken);
       }
     }
+    finishRequest(requestKey);
   }
 
   async function login(event: FormEvent<HTMLFormElement>, role: User["role"]) {
     event.preventDefault();
+    const requestKey = role === "ADMIN" ? "admin-login" : "advertiser-login";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
     const payload = {
       email: String(form.get("email") ?? ""),
@@ -437,16 +457,21 @@ export default function App() {
     const data = response.data;
 
     if (!response.ok || !data.token || !data.user) {
-      setStatusMessage(data.message ?? "Login failed.");
+      showStatus(
+        data.message ?? "Wrong user ID or password. Please check your credentials and try again.",
+        "error"
+      );
+      finishRequest(requestKey);
       return;
     }
 
     if (data.user.role !== role) {
-      setStatusMessage(`This account is not a ${role.toLowerCase()} login.`);
+      showStatus(`This account is not a ${role.toLowerCase()} login.`, "error");
+      finishRequest(requestKey);
       return;
     }
 
-    setStatusMessage(`Welcome back, ${data.user.name}.`);
+    showStatus(`Welcome back, ${data.user.name}.`, "success");
 
     if (role === "ADVERTISER") {
       setAdvertiserToken(data.token);
@@ -455,16 +480,19 @@ export default function App() {
     } else {
       setAdminToken(data.token);
     }
+    finishRequest(requestKey);
   }
 
   async function submitProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!advertiserToken) {
-      setStatusMessage("Please login as an approved advertiser first.");
+      showStatus("Please login as an approved advertiser first.", "error");
       return;
     }
 
+    const requestKey = "submit-product";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
     const leadTimeDays = Number(form.get("leadTimeDays") ?? "");
     const bufferDays = Number(form.get("bufferDays") ?? "");
@@ -485,26 +513,30 @@ export default function App() {
 
     const response = await createAdvertiserProduct(advertiserToken, payload);
     const data = response.data;
-    setStatusMessage(
+    showStatus(
       response.ok
         ? "Product submitted for admin approval."
-        : data.message ?? "Product submitted."
+        : data.message ?? "Product submitted.",
+      response.ok ? "success" : "error"
     );
 
     if (response.ok && data.product) {
       event.currentTarget.reset();
       await Promise.all([loadMarketplace(), loadHostDashboard(advertiserToken)]);
     }
+    finishRequest(requestKey);
   }
 
   async function submitAvailabilityBlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!advertiserToken) {
-      setStatusMessage("Please login as an approved advertiser first.");
+      showStatus("Please login as an approved advertiser first.", "error");
       return;
     }
 
+    const requestKey = "availability";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
     const payload = {
       productId: String(form.get("productId") ?? ""),
@@ -514,22 +546,25 @@ export default function App() {
     };
 
     const response = await createAvailabilityBlock(advertiserToken, payload);
-    setStatusMessage(response.data.message ?? "Availability saved.");
+    showStatus(response.data.message ?? "Availability saved.", response.ok ? "success" : "error");
 
     if (response.ok) {
       event.currentTarget.reset();
       await loadHostDashboard(advertiserToken);
     }
+    finishRequest(requestKey);
   }
 
   async function submitPricingRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!advertiserToken) {
-      setStatusMessage("Please login as an approved advertiser first.");
+      showStatus("Please login as an approved advertiser first.", "error");
       return;
     }
 
+    const requestKey = "pricing";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
     const multiplier = Number(form.get("multiplier") ?? "");
     const fixedDailyRate = Number(form.get("fixedDailyRate") ?? "");
@@ -554,12 +589,13 @@ export default function App() {
     };
 
     const response = await createPricingRule(advertiserToken, payload);
-    setStatusMessage(response.data.message ?? "Pricing rule saved.");
+    showStatus(response.data.message ?? "Pricing rule saved.", response.ok ? "success" : "error");
 
     if (response.ok) {
       event.currentTarget.reset();
       await loadHostDashboard(advertiserToken);
     }
+    finishRequest(requestKey);
   }
 
   async function updateAdvertiserAccess(
@@ -571,7 +607,10 @@ export default function App() {
     }
 
     const response = await updateAdvertiserAccessStatus(adminToken, userId, accessStatus);
-    setStatusMessage(response.data.message ?? "Advertiser access updated.");
+    showStatus(
+      response.data.message ?? "Advertiser access updated.",
+      response.ok ? "success" : "error"
+    );
 
     if (response.ok) {
       void loadAdminDashboard(adminToken);
@@ -591,7 +630,7 @@ export default function App() {
     setCurrentBooking(null);
     setCustomerAuthMode(customerProfile ? "signin" : "signup");
     navigate(customerProfile ? "customer-shipping" : "customer-auth");
-    setStatusMessage(`Continue your rental for "${product.name}".`);
+    showStatus(`Continue your rental for "${product.name}".`, "info");
     void recordAnalyticsEvent({
       eventType: "PRODUCT_VIEW",
       sessionId: analyticsSessionId,
@@ -602,6 +641,8 @@ export default function App() {
 
   async function submitCustomerAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const requestKey = customerAuthMode === "signup" ? "customer-signup" : "customer-signin";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
 
     const email = String(form.get("email") ?? "").toLowerCase();
@@ -616,7 +657,8 @@ export default function App() {
       });
 
       if (!response.ok || !response.data.token || !response.data.customer) {
-        setStatusMessage(response.data.message ?? "Unable to create customer account.");
+        showStatus(response.data.message ?? "Unable to create customer account.", "error");
+        finishRequest(requestKey);
         return;
       }
 
@@ -626,7 +668,12 @@ export default function App() {
       const response = await loginCustomerAccount({ email, password });
 
       if (!response.ok || !response.data.token || !response.data.customer) {
-        setStatusMessage(response.data.message ?? "Invalid customer email or password.");
+        showStatus(
+          response.data.message ??
+            "Wrong user ID or password. Please check your customer login and try again.",
+          "error"
+        );
+        finishRequest(requestKey);
         return;
       }
 
@@ -635,11 +682,13 @@ export default function App() {
     }
 
     navigate(selectedProduct ? "customer-shipping" : "customer-dashboard");
-    setStatusMessage(
+    showStatus(
       selectedProduct
         ? "Add shipment and payment details to place your rental order."
-        : "Welcome to your customer dashboard."
+        : "Welcome to your customer dashboard.",
+      "success"
     );
+    finishRequest(requestKey);
   }
 
   async function submitShipping(event: FormEvent<HTMLFormElement>) {
@@ -647,11 +696,13 @@ export default function App() {
     const form = new FormData(event.currentTarget);
 
     if (!selectedProduct || !customerProfile || !customerToken) {
-      setStatusMessage("Please choose a product and sign in before checkout.");
+      showStatus("Please choose a product and sign in before checkout.", "error");
       navigate("explore");
       return;
     }
 
+    const requestKey = "booking";
+    setPendingRequest(requestKey);
     const details: ShippingDetails = {
       addressLine1: String(form.get("addressLine1") ?? ""),
       addressLine2: String(form.get("addressLine2") ?? ""),
@@ -675,7 +726,8 @@ export default function App() {
     });
 
     if (!response.ok || !response.data.booking) {
-      setStatusMessage(response.data.message ?? "Unable to place order.");
+      showStatus(response.data.message ?? "Unable to place order.", "error");
+      finishRequest(requestKey);
       return;
     }
 
@@ -683,7 +735,8 @@ export default function App() {
     setCurrentBooking(response.data.booking);
     await loadCustomerSession(customerToken);
     navigate("customer-confirmation");
-    setStatusMessage(response.data.message ?? "Your order has been placed.");
+    showStatus(response.data.message ?? "Your order has been placed.", "success");
+    finishRequest(requestKey);
     void recordAnalyticsEvent({
       eventType: "BOOKING_COMPLETE",
       sessionId: analyticsSessionId,
@@ -698,12 +751,18 @@ export default function App() {
       return;
     }
 
+    const requestKey = "admin-action";
+    setPendingRequest(requestKey);
     const response = await updateProductStatusRequest(adminToken, productId, status);
-    setStatusMessage(response.data.message ?? `Listing ${status.toLowerCase()} successfully.`);
+    showStatus(
+      response.data.message ?? `Listing ${status.toLowerCase()} successfully.`,
+      response.ok ? "success" : "error"
+    );
 
     if (response.ok) {
       await Promise.all([loadMarketplace(), loadAdminDashboard(adminToken)]);
     }
+    finishRequest(requestKey);
   }
 
   async function updateProductQa(productId: string, qaStatus: QaStatus) {
@@ -711,23 +770,31 @@ export default function App() {
       return;
     }
 
+    const requestKey = "admin-action";
+    setPendingRequest(requestKey);
     const qaNotes = qaNotesDraft[productId] ?? "";
     const response = await updateProductQaStatus(adminToken, productId, qaStatus, qaNotes);
-    setStatusMessage(response.data.message ?? "Product QA updated.");
+    showStatus(response.data.message ?? "Product QA updated.", response.ok ? "success" : "error");
 
     if (response.ok) {
       await Promise.all([loadMarketplace(), loadAdminDashboard(adminToken)]);
     }
+    finishRequest(requestKey);
   }
 
   async function updateBookingStatus(bookingId: string, status: BookingStatus) {
     if (!adminToken) {
-      setStatusMessage("Only admin can update shipment status.");
+      showStatus("Only admin can update shipment status.", "error");
       return;
     }
 
+    const requestKey = "admin-action";
+    setPendingRequest(requestKey);
     const response = await updateBookingStatusRequest(adminToken, bookingId, status);
-    setStatusMessage(response.data.message ?? `Booking moved to ${formatStatus(status)}.`);
+    showStatus(
+      response.data.message ?? `Booking moved to ${formatStatus(status)}.`,
+      response.ok ? "success" : "error"
+    );
 
     if (response.ok) {
       await loadAdminDashboard(adminToken);
@@ -738,6 +805,7 @@ export default function App() {
         await loadHostDashboard(advertiserToken);
       }
     }
+    finishRequest(requestKey);
   }
 
   async function scheduleReturn(bookingId: string) {
@@ -745,9 +813,11 @@ export default function App() {
       return;
     }
 
+    const requestKey = "admin-action";
+    setPendingRequest(requestKey);
     const returnScheduledAt = returnScheduleDraft[bookingId];
     const response = await scheduleReturnPickup(adminToken, bookingId, returnScheduledAt);
-    setStatusMessage(response.data.message ?? "Return pickup updated.");
+    showStatus(response.data.message ?? "Return pickup updated.", response.ok ? "success" : "error");
 
     if (response.ok) {
       await loadAdminDashboard(adminToken);
@@ -755,6 +825,7 @@ export default function App() {
         await loadCustomerSession(customerToken);
       }
     }
+    finishRequest(requestKey);
   }
 
   async function submitContentBlock(event: FormEvent<HTMLFormElement>) {
@@ -763,6 +834,8 @@ export default function App() {
       return;
     }
 
+    const requestKey = "admin-action";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
     const payload = {
       key: String(form.get("key") ?? ""),
@@ -773,12 +846,13 @@ export default function App() {
     };
 
     const response = await createContentBlock(adminToken, payload);
-    setStatusMessage(response.data.message ?? "Content block created.");
+    showStatus(response.data.message ?? "Content block created.", response.ok ? "success" : "error");
 
     if (response.ok) {
       event.currentTarget.reset();
       await loadAdminDashboard(adminToken);
     }
+    finishRequest(requestKey);
   }
 
   async function toggleContentPublish(block: ContentBlock) {
@@ -786,17 +860,20 @@ export default function App() {
       return;
     }
 
+    const requestKey = "admin-action";
+    setPendingRequest(requestKey);
     const response = await updateContentBlock(adminToken, block.id, {
       title: block.title,
       body: block.body,
       type: block.type,
       isPublished: !block.isPublished
     });
-    setStatusMessage(response.data.message ?? "Content updated.");
+    showStatus(response.data.message ?? "Content updated.", response.ok ? "success" : "error");
 
     if (response.ok) {
       await loadAdminDashboard(adminToken);
     }
+    finishRequest(requestKey);
   }
 
   async function submitPromoCampaign(event: FormEvent<HTMLFormElement>) {
@@ -805,6 +882,8 @@ export default function App() {
       return;
     }
 
+    const requestKey = "admin-action";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
     const payload = {
       code: String(form.get("code") ?? "").toUpperCase(),
@@ -819,12 +898,13 @@ export default function App() {
     };
 
     const response = await createPromoCampaign(adminToken, payload);
-    setStatusMessage(response.data.message ?? "Promo created.");
+    showStatus(response.data.message ?? "Promo created.", response.ok ? "success" : "error");
 
     if (response.ok) {
       event.currentTarget.reset();
       await loadAdminDashboard(adminToken);
     }
+    finishRequest(requestKey);
   }
 
   async function submitReferralCode(event: FormEvent<HTMLFormElement>) {
@@ -833,6 +913,8 @@ export default function App() {
       return;
     }
 
+    const requestKey = "admin-action";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
     const payload = {
       code: String(form.get("code") ?? "").toUpperCase(),
@@ -841,21 +923,24 @@ export default function App() {
     };
 
     const response = await createReferralCode(adminToken, payload);
-    setStatusMessage(response.data.message ?? "Referral created.");
+    showStatus(response.data.message ?? "Referral created.", response.ok ? "success" : "error");
 
     if (response.ok) {
       event.currentTarget.reset();
       await loadAdminDashboard(adminToken);
     }
+    finishRequest(requestKey);
   }
 
   async function submitReview(event: FormEvent<HTMLFormElement>, booking: Booking) {
     event.preventDefault();
     if (!customerToken) {
-      setStatusMessage("Please sign in as a customer to review this rental.");
+      showStatus("Please sign in as a customer to review this rental.", "error");
       return;
     }
 
+    const requestKey = "review";
+    setPendingRequest(requestKey);
     const form = new FormData(event.currentTarget);
     const response = await saveReview(customerToken, booking.id, {
       rating: Number(form.get("rating") ?? 5),
@@ -863,16 +948,17 @@ export default function App() {
       conditionNote: String(form.get("conditionNote") ?? "")
     });
 
-    setStatusMessage(response.data.message ?? "Review saved.");
+    showStatus(response.data.message ?? "Review saved.", response.ok ? "success" : "error");
     if (response.ok) {
       await Promise.all([loadCustomerSession(customerToken), loadMarketplace()]);
       event.currentTarget.reset();
     }
+    finishRequest(requestKey);
   }
 
   function logoutCustomer() {
     setCustomerToken(null);
-    setStatusMessage("Customer signed out.");
+    showStatus("Customer signed out.", "info");
     navigate("home");
   }
 
@@ -919,6 +1005,8 @@ export default function App() {
               overview={overview}
               navigate={navigate}
               statusMessage={statusMessage}
+              statusTone={statusTone}
+              pendingRequest={pendingRequest}
               isLoading={isMarketplaceLoading}
             />
           )}
@@ -937,6 +1025,11 @@ export default function App() {
               product={selectedProduct}
               onModeChange={setCustomerAuthMode}
               onSubmit={submitCustomerAuth}
+              statusMessage={statusMessage}
+              statusTone={statusTone}
+              isSubmitting={
+                pendingRequest === "customer-signup" || pendingRequest === "customer-signin"
+              }
             />
           )}
           {route === "customer-shipping" && (
@@ -944,6 +1037,7 @@ export default function App() {
               product={selectedProduct}
               customerProfile={customerProfile}
               onSubmit={submitShipping}
+              isSubmitting={pendingRequest === "booking"}
             />
           )}
           {route === "customer-confirmation" && (
@@ -975,6 +1069,8 @@ export default function App() {
               hostDashboard={hostDashboard}
               isLoading={isHostLoading}
               statusMessage={statusMessage}
+              statusTone={statusTone}
+              pendingRequest={pendingRequest}
               registeredAdvertiserEmail={registeredAdvertiserEmail}
               advertiserRegistrationStatus={advertiserRegistrationStatus}
               bookings={advertiserBookings}
@@ -1004,6 +1100,8 @@ export default function App() {
               products={adminDashboard?.products ?? products}
               bookings={adminDashboard?.bookings ?? []}
               statusMessage={statusMessage}
+              statusTone={statusTone}
+              pendingRequest={pendingRequest}
               onSearchChange={setAdminSearch}
               onFilterChange={setAdminFilter}
               onProductSearchChange={setProductSearch}
@@ -1143,11 +1241,15 @@ function HomePage({
   overview,
   navigate,
   statusMessage,
+  statusTone,
+  pendingRequest,
   isLoading
 }: {
   overview: Overview | null;
   navigate: (route: Route) => void;
   statusMessage: string;
+  statusTone: FeedbackTone;
+  pendingRequest: string | null;
   isLoading: boolean;
 }) {
   const showSkeletons = isLoading;
@@ -1232,7 +1334,11 @@ function HomePage({
                   </>
                 )}
             </div>
-            <p className="status-banner">{statusMessage}</p>
+            <PremiumAlert
+              message={statusMessage}
+              tone={pendingRequest ? "loading" : statusTone}
+              isBusy={Boolean(pendingRequest)}
+            />
           </motion.div>
         </div>
       </section>
@@ -1299,11 +1405,13 @@ function HomePage({
 function CustomerShippingPage({
   product,
   customerProfile,
-  onSubmit
+  onSubmit,
+  isSubmitting
 }: {
   product: Product | null;
   customerProfile: CustomerProfile | null;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  isSubmitting: boolean;
 }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -1399,8 +1507,19 @@ function CustomerShippingPage({
                 Dynamic pricing and promos are applied on the server after you submit.
               </p>
             </div>
-            <button type="submit" className="primary-button" disabled={!product || !customerProfile}>
-              Pay Rs {total || 0} and place order
+            <button
+              type="submit"
+              className={`primary-button${isSubmitting ? " is-loading" : ""}`}
+              disabled={!product || !customerProfile || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="button-spinner" aria-hidden="true" />
+                  Securing order...
+                </>
+              ) : (
+                `Pay Rs ${total || 0} and place order`
+              )}
             </button>
           </form>
         </article>

@@ -9,6 +9,7 @@ import type {
   QaStatus,
   User
 } from "../api";
+import { LoadingButton, PremiumAlert, type FeedbackTone } from "../components/feedback";
 import { ProductImages } from "../components/marketplace";
 import { bookingStatuses, formatStatus } from "../utils/booking";
 
@@ -26,6 +27,8 @@ type AdminPageProps = {
   products: Product[];
   bookings: Booking[];
   statusMessage: string;
+  statusTone: FeedbackTone;
+  pendingRequest: string | null;
   onSearchChange: (value: string) => void;
   onFilterChange: (filter: "ALL" | "APPROVED" | "PENDING" | "SUSPENDED") => void;
   onProductSearchChange: (value: string) => void;
@@ -72,6 +75,8 @@ export function AdminPage(props: AdminPageProps) {
     products,
     bookings,
     statusMessage,
+    statusTone,
+    pendingRequest,
     onSearchChange,
     onFilterChange,
     onProductSearchChange,
@@ -114,14 +119,18 @@ export function AdminPage(props: AdminPageProps) {
             analytics, and growth tools.
           </p>
         </div>
-        <div className="status-banner compact">
-          <strong>{statusMessage}</strong>
-          <span className="meta-line">Pending QA: {adminDashboard?.summary.pendingQaListings ?? 0}</span>
+        <div className="admin-status-stack">
+          <PremiumAlert
+            message={statusMessage}
+            tone={pendingRequest ? "loading" : statusTone}
+            detail={`Pending QA: ${adminDashboard?.summary.pendingQaListings ?? 0}`}
+            isBusy={Boolean(pendingRequest)}
+          />
         </div>
       </section>
 
       {!adminUser ? (
-        <AdminLoginCard onLogin={onLogin} />
+        <AdminLoginCard onLogin={onLogin} isSubmitting={pendingRequest === "admin-login"} />
       ) : (
         <>
           <AdminNav
@@ -191,9 +200,11 @@ export function AdminPage(props: AdminPageProps) {
 }
 
 function AdminLoginCard({
-  onLogin
+  onLogin,
+  isSubmitting
 }: {
   onLogin: (event: FormEvent<HTMLFormElement>, role: User["role"]) => Promise<void>;
+  isSubmitting: boolean;
 }) {
   return (
     <section className="admin-login-layout">
@@ -204,9 +215,13 @@ function AdminLoginCard({
         <form className="stack-form" onSubmit={(event) => void onLogin(event, "ADMIN")}>
           <input name="email" type="email" placeholder="Admin email" required />
           <input name="password" type="password" placeholder="Admin password" required />
-          <button type="submit" className="primary-button">
+          <LoadingButton
+            type="submit"
+            isLoading={isSubmitting}
+            loadingLabel="Checking access..."
+          >
             Login as admin
-          </button>
+          </LoadingButton>
         </form>
       </article>
       <article className="dashboard-card admin-preview-card">
