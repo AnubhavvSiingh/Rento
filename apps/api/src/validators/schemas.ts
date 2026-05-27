@@ -252,7 +252,10 @@ export function assertAnalyticsEvent(body: unknown) {
     sessionId: optionalStringField(value, "sessionId"),
     customerId: optionalStringField(value, "customerId"),
     productId: optionalStringField(value, "productId"),
-    metadata: value.metadata && typeof value.metadata === "object" ? value.metadata : null
+    metadata:
+      value.metadata && typeof value.metadata === "object"
+        ? (value.metadata as Record<string, unknown>)
+        : null
   };
 }
 

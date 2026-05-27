@@ -64,6 +64,7 @@ import {
   TrustChip,
   TrustChipSkeleton
 } from "./components/marketplace";
+import { PremiumSelect } from "./components/PremiumSelect";
 import { formatStatus } from "./utils/booking";
 import { AdminPage } from "./pages/AdminPage";
 import { AdvertiserPage } from "./pages/AdvertiserPage";
@@ -78,7 +79,13 @@ type Route =
   | "customer-confirmation"
   | "customer-dashboard"
   | "advertiser"
-  | "admin";
+  | "admin"
+  | "admin-inventory"
+  | "admin-delivery"
+  | "admin-analytics"
+  | "admin-marketing";
+
+type AdminView = "overview" | "inventory" | "delivery" | "analytics" | "marketing";
 
 type AdminFilter = "ALL" | "APPROVED" | "PENDING" | "SUSPENDED";
 type ThemeMode = "dark" | "light";
@@ -86,6 +93,41 @@ type ThemeMode = "dark" | "light";
 const customerTokenKey = "rento_customer_token";
 const themeKey = "rento_theme";
 const analyticsSessionKey = "rento_analytics_session";
+
+const paymentOptions = [
+  {
+    value: "UPI",
+    label: "UPI",
+    description: "Fast confirmation with any UPI ID",
+    icon: "UPI"
+  },
+  {
+    value: "Card",
+    label: "Card",
+    description: "Credit or debit card reference",
+    icon: "Card"
+  },
+  {
+    value: "Net banking",
+    label: "Net banking",
+    description: "Bank transfer confirmation",
+    icon: "Bank"
+  },
+  {
+    value: "Wallet",
+    label: "Wallet",
+    description: "Wallet or prepaid transaction ID",
+    icon: "Pay"
+  }
+];
+
+const ratingOptions = [
+  { value: "5", label: "5 - Excellent", description: "Premium from start to finish", icon: "5" },
+  { value: "4", label: "4 - Good", description: "Smooth experience with small gaps", icon: "4" },
+  { value: "3", label: "3 - Okay", description: "Acceptable but could improve", icon: "3" },
+  { value: "2", label: "2 - Needs improvement", description: "Noticeable service issues", icon: "2" },
+  { value: "1", label: "1 - Poor", description: "Major rental experience problem", icon: "1" }
+];
 
 
 export default function App() {
@@ -949,8 +991,9 @@ export default function App() {
               onSubmitPricingRule={submitPricingRule}
             />
           )}
-          {route === "admin" && (
+          {isAdminRoute(route) && (
             <AdminPage
+              activeView={getAdminView(route)}
               adminUser={adminUser}
               adminDashboard={adminDashboard}
               filteredAdvertisers={filteredAdvertisers}
@@ -964,6 +1007,7 @@ export default function App() {
               onSearchChange={setAdminSearch}
               onFilterChange={setAdminFilter}
               onProductSearchChange={setProductSearch}
+              onViewChange={(view) => navigate(getAdminRoute(view))}
               onLogin={login}
               onLogout={() => setAdminToken(null)}
               onUpdateAccess={updateAdvertiserAccess}
@@ -1020,7 +1064,7 @@ function TopBar({
         <button type="button" className="ghost-button" onClick={() => navigate("customer-dashboard") }>
           {hasCustomer ? "My Rentals" : "Customer Login"}
         </button>
-        {route !== "admin" && (
+        {!isAdminRoute(route) && (
           <button
             type="button"
             className="mini-admin-button"
@@ -1342,12 +1386,7 @@ function CustomerShippingPage({
             />
             <div className="payment-panel">
               <p className="panel-title">Payment</p>
-              <select name="paymentMethod" defaultValue="UPI">
-                <option value="UPI">UPI</option>
-                <option value="Card">Card</option>
-                <option value="Net banking">Net banking</option>
-                <option value="Wallet">Wallet</option>
-              </select>
+              <PaymentMethodPicker />
               <input
                 name="paymentReference"
                 type="text"
@@ -1379,6 +1418,33 @@ function CustomerShippingPage({
         </article>
       </section>
     </main>
+  );
+}
+
+function PaymentMethodPicker() {
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+
+  return (
+    <div className="payment-method-grid">
+      <input type="hidden" name="paymentMethod" value={paymentMethod} />
+      {paymentOptions.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={
+            paymentMethod === option.value
+              ? "payment-method-card selected"
+              : "payment-method-card"
+          }
+          onClick={() => setPaymentMethod(option.value)}
+          aria-pressed={paymentMethod === option.value}
+        >
+          <span>{option.icon}</span>
+          <strong>{option.label}</strong>
+          <small>{option.description}</small>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -1626,13 +1692,13 @@ function CustomerDashboardPage({
                       <p className="panel-title">
                         {review ? "Update your review" : "Rate this rental"}
                       </p>
-                      <select name="rating" defaultValue={review?.rating ?? 5}>
-                        <option value="5">5 - Excellent</option>
-                        <option value="4">4 - Good</option>
-                        <option value="3">3 - Okay</option>
-                        <option value="2">2 - Needs improvement</option>
-                        <option value="1">1 - Poor</option>
-                      </select>
+                      <PremiumSelect
+                        name="rating"
+                        label="Experience rating"
+                        defaultValue={review?.rating ?? 5}
+                        options={ratingOptions}
+                        compact
+                      />
                       <textarea
                         name="comment"
                         placeholder="How was the rental experience?"
@@ -1771,10 +1837,46 @@ function getRouteFromHash(): Route {
     value === "customer-confirmation" ||
     value === "customer-dashboard" ||
     value === "advertiser" ||
-    value === "admin"
+    value === "admin" ||
+    value === "admin-inventory" ||
+    value === "admin-delivery" ||
+    value === "admin-analytics" ||
+    value === "admin-marketing"
   ) {
     return value;
   }
 
   return "home";
+}
+
+function isAdminRoute(route: Route) {
+  return route.startsWith("admin");
+}
+
+function getAdminView(route: Route): AdminView {
+  if (route === "admin-inventory") {
+    return "inventory";
+  }
+  if (route === "admin-delivery") {
+    return "delivery";
+  }
+  if (route === "admin-analytics") {
+    return "analytics";
+  }
+  if (route === "admin-marketing") {
+    return "marketing";
+  }
+  return "overview";
+}
+
+function getAdminRoute(view: AdminView): Route {
+  const routes: Record<AdminView, Route> = {
+    overview: "admin",
+    inventory: "admin-inventory",
+    delivery: "admin-delivery",
+    analytics: "admin-analytics",
+    marketing: "admin-marketing"
+  };
+
+  return routes[view];
 }

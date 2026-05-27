@@ -893,6 +893,229 @@ button {
   background: var(--surface-glow);
 }
 
+.premium-filter-panel {
+  position: sticky;
+  top: 86px;
+  z-index: 12;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(190px, 1fr)) minmax(170px, 0.85fr);
+  gap: 12px;
+  align-items: start;
+  margin: 18px 0 22px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-strong) 88%, transparent);
+  box-shadow: 0 18px 46px var(--shadow);
+  backdrop-filter: blur(22px);
+}
+
+.premium-search-field,
+.premium-range-field {
+  min-height: 78px;
+  display: grid;
+  gap: 7px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+}
+
+.premium-search-field span,
+.premium-range-field span,
+.premium-select-label {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.premium-search-field input {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  outline: 0;
+}
+
+.premium-range-field strong {
+  font-size: 1rem;
+}
+
+.premium-range-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.premium-select {
+  position: relative;
+  min-width: 0;
+}
+
+.premium-select-trigger {
+  min-height: 78px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--input-bg) 92%, white), var(--input-bg)),
+    var(--input-bg);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 46%, transparent);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.theme-dark .premium-select-trigger {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--input-bg) 86%, white 8%), var(--input-bg)),
+    var(--input-bg);
+}
+
+.premium-select-trigger:hover,
+.premium-select[data-open="true"] .premium-select-trigger {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 36%, transparent),
+    0 14px 30px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.premium-select-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.premium-select-copy strong,
+.premium-select-option strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.premium-select-copy small,
+.premium-select-option small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.premium-select-mark,
+.premium-select-option-media {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.premium-select-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+}
+
+.premium-select-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  box-shadow: 0 26px 70px var(--shadow);
+}
+
+.premium-select-search {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--ink);
+  outline: 0;
+}
+
+.premium-select-list {
+  display: grid;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.premium-select-option {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 20px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.premium-select-option:hover,
+.premium-select-option.selected {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 62%, transparent);
+}
+
+.premium-select-check {
+  color: var(--accent);
+  font-weight: 800;
+  text-align: right;
+}
+
+.premium-select-empty {
+  margin: 6px;
+  color: var(--muted);
+}
+
+.premium-select.compact .premium-select-trigger {
+  min-height: 66px;
+}
+
+.active-filter-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.active-filter-chip {
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 700;
+}
+
 .form-grid label {
   display: grid;
   gap: 8px;
@@ -907,6 +1130,56 @@ button {
   border-radius: 8px;
   border: 1px solid rgba(110, 231, 216, 0.18);
   background: rgba(110, 231, 216, 0.1);
+}
+
+.payment-method-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.payment-method-card {
+  min-height: 104px;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-glow);
+  color: var(--ink);
+  text-align: left;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.payment-method-card span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.payment-method-card small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.payment-method-card:hover,
+.payment-method-card.selected {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.payment-method-card.selected {
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-glow));
 }
 
 .feature-video-card {
@@ -1407,6 +1680,86 @@ button {
   margin: 18px 0;
 }
 
+.admin-hero-header .status-banner {
+  min-width: min(100%, 320px);
+}
+
+.admin-login-layout,
+.admin-split-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.admin-preview-card {
+  align-content: center;
+}
+
+.admin-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.admin-nav-card,
+.admin-command-card {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  min-height: 94px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-glow);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--shadow) 72%, transparent);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.admin-nav-card span,
+.admin-command-card span {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-nav-card strong,
+.admin-command-card small {
+  color: var(--muted);
+}
+
+.admin-nav-card:hover,
+.admin-nav-card.active,
+.admin-command-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface-glow));
+}
+
+.admin-nav-card.active strong {
+  color: var(--ink);
+}
+
+.admin-command-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.admin-command-card strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.admin-delivery-card {
+  gap: 14px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -1460,6 +1813,7 @@ td {
   .dashboard-grid,
   .admin-layout,
   .checkout-layout,
+  .premium-filter-panel,
   .feature-band,
   .story-grid,
   .cards,
@@ -1500,6 +1854,15 @@ td {
   .video-shell,
   .video-shell video {
     min-height: 220px;
+  }
+
+  .premium-filter-panel {
+    position: relative;
+    top: auto;
+  }
+
+  .active-filter-row {
+    grid-column: auto;
   }
 }
 

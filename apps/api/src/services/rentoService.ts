@@ -12,6 +12,7 @@ import type {
   QaStatus,
   UserRole
 } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { compare, hash } from "bcryptjs";
 import crypto from "node:crypto";
 import { prisma } from "../database/prisma.js";
@@ -952,7 +953,7 @@ export async function recordAnalyticsEvent(input: {
       sessionId: input.sessionId || null,
       customerId: input.customerId || null,
       productId: input.productId || null,
-      metadata: input.metadata ?? null
+      metadata: input.metadata ? (input.metadata as Prisma.InputJsonValue) : Prisma.JsonNull
     }
   });
 
@@ -1135,7 +1136,7 @@ async function createAuditLog(
       action,
       targetType: options.targetType,
       targetId: options.targetId ?? null,
-      details: options.details ?? null,
+      details: options.details ? (options.details as Prisma.InputJsonValue) : Prisma.JsonNull,
       ipAddress: options.ipAddress ?? null,
       userAgent: options.userAgent ?? null
     }
@@ -1378,7 +1379,7 @@ function getRentalDays(startDate: Date, endDate: Date) {
   return Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / 86_400_000));
 }
 
-function toDateInput(value: Date | undefined) {
+function toDateInput(value: Date | null | undefined) {
   return value ? value.toISOString().slice(0, 10) : "";
 }
 

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { Overview, Product } from "../api";
 import {
   advertiserCategories,
+  categoryImages,
   categoryShowcases,
   exploreVideoFeature,
   exploreVisuals
@@ -13,6 +14,7 @@ import {
   ProductImages,
   RatingSummary
 } from "../components/marketplace";
+import { PremiumSelect } from "../components/PremiumSelect";
 
 export function ExplorePage({
   products,
@@ -37,6 +39,59 @@ export function ExplorePage({
     () => Array.from(new Set(products.map((product) => product.city))).sort(),
     [products]
   );
+  const maxAvailableRate = useMemo(
+    () => Math.max(1000, ...products.map((product) => product.dailyRate)),
+    [products]
+  );
+  const categoryOptions = useMemo(
+    () => [
+      {
+        value: "All",
+        label: "All categories",
+        description: "Curated rentals across every collection",
+        image: categoryImages.Ceremony[0]
+      },
+      ...advertiserCategories.map((item) => ({
+        value: item,
+        label: item,
+        description: getCategoryDescription(item),
+        image: categoryImages[item]?.[0]
+      }))
+    ],
+    []
+  );
+  const cityOptions = useMemo(
+    () => [
+      { value: "All", label: "All cities", description: "Show every available delivery city", icon: "IN" },
+      ...cities.map((item) => ({
+        value: item,
+        label: item,
+        description: "Ready for delivery and pickup",
+        icon: item.slice(0, 2).toUpperCase()
+      }))
+    ],
+    [cities]
+  );
+  const sortOptions = [
+    {
+      value: "recommended",
+      label: "Curated first",
+      description: "Balanced by quality, trust, and match",
+      icon: "01"
+    },
+    {
+      value: "price-low",
+      label: "Best daily value",
+      description: "Lowest rent per day first",
+      icon: "Rs"
+    },
+    {
+      value: "price-high",
+      label: "Premium picks",
+      description: "Highest daily rate first",
+      icon: "Hi"
+    }
+  ];
   const filteredProducts = useMemo(() => {
     const max = maxPrice ? Number(maxPrice) : Number.POSITIVE_INFINITY;
     const filtered = products.filter((product) => {
@@ -98,41 +153,74 @@ export function ExplorePage({
         </article>
       </section>
 
-      <section className="filter-panel" aria-label="Search and filters">
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search lehenga, sofa, fridge, camera..."
+      <section className="premium-filter-panel" aria-label="Search and filters">
+        <label className="premium-search-field">
+          <span>Search the collection</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Lehenga, sofa, fridge, camera..."
+          />
+        </label>
+        <PremiumSelect
+          label="Category"
+          value={category}
+          onChange={setCategory}
+          options={categoryOptions}
+          searchable
         />
-        <select value={category} onChange={(event) => setCategory(event.target.value)}>
-          <option value="All">All categories</option>
-          {advertiserCategories.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-        <select value={city} onChange={(event) => setCity(event.target.value)}>
-          <option value="All">All cities</option>
-          {cities.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min="1"
-          value={maxPrice}
-          onChange={(event) => setMaxPrice(event.target.value)}
-          placeholder="Max Rs/day"
+        <PremiumSelect
+          label="City"
+          value={city}
+          onChange={setCity}
+          options={cityOptions}
+          searchable
         />
-        <select value={sort} onChange={(event) => setSort(event.target.value)}>
-          <option value="recommended">Recommended</option>
-          <option value="price-low">Price: low to high</option>
-          <option value="price-high">Price: high to low</option>
-        </select>
+        <label className="premium-range-field">
+          <span>Max daily rent</span>
+          <strong>{maxPrice ? `Rs ${maxPrice}/day` : "No limit"}</strong>
+          <input
+            type="range"
+            min="1"
+            max={maxAvailableRate}
+            step="50"
+            value={maxPrice || maxAvailableRate}
+            onChange={(event) =>
+              setMaxPrice(event.target.value === String(maxAvailableRate) ? "" : event.target.value)
+            }
+          />
+        </label>
+        <PremiumSelect
+          label="Sort by"
+          value={sort}
+          onChange={setSort}
+          options={sortOptions}
+        />
+        {(search || category !== "All" || city !== "All" || maxPrice) && (
+          <div className="active-filter-row">
+            {search && (
+              <button type="button" className="active-filter-chip" onClick={() => setSearch("")}>
+                Search: {search}
+              </button>
+            )}
+            {category !== "All" && (
+              <button type="button" className="active-filter-chip" onClick={() => setCategory("All")}>
+                {category}
+              </button>
+            )}
+            {city !== "All" && (
+              <button type="button" className="active-filter-chip" onClick={() => setCity("All")}>
+                {city}
+              </button>
+            )}
+            {maxPrice && (
+              <button type="button" className="active-filter-chip" onClick={() => setMaxPrice("")}>
+                Under Rs {maxPrice}/day
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="visual-gallery compact-gallery">
@@ -223,6 +311,18 @@ export function ExplorePage({
       </section>
     </main>
   );
+}
+
+function getCategoryDescription(category: string) {
+  const descriptions: Record<string, string> = {
+    Furniture: "Sofas, beds, desks, and flexible home setups",
+    Appliances: "Fridges, washers, and everyday essentials",
+    Fashion: "Statement outfits and creator-ready styling",
+    Ceremony: "Lehengas, sherwanis, decor, and event pieces",
+    Electronics: "Cameras, monitors, and work gear"
+  };
+
+  return descriptions[category] ?? "Premium rental collection";
 }
 
 function ProductSkeletonCard() {

@@ -4,6 +4,7 @@ import { ApiError } from "../middleware/errorHandler.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 import type { CustomerRequest, UserRequest } from "../types/domain.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { getBackendStatus, renderStatusPage } from "../services/backendStatusService.js";
 import {
   assertAccessStatus,
   assertBooking,
@@ -53,6 +54,21 @@ import {
 } from "../services/rentoService.js";
 
 export function registerApiRoutes(app: Express) {
+  app.get(
+    "/",
+    asyncHandler(async (_req, res) => {
+      const status = await getBackendStatus();
+      res.type("html").send(renderStatusPage(status));
+    })
+  );
+
+  app.get(
+    "/api/status",
+    asyncHandler(async (_req, res) => {
+      res.json(await getBackendStatus());
+    })
+  );
+
   app.get(
     "/health",
     asyncHandler(async (_req, res) => {
