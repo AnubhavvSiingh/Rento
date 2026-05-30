@@ -1,3 +1,4 @@
+// Admin dashboard UI for approvals, products, and bookings.
 import type { FormEvent } from "react";
 import type {
   AdminDashboard,

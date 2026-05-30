@@ -1,3 +1,4 @@
+// Customer login/signup UI used before checkout.
 import type { FormEvent } from "react";
 import type { Product } from "../api";
 import { LoadingButton, PremiumAlert, type FeedbackTone } from "../components/feedback";

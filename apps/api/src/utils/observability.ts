@@ -1,4 +1,4 @@
-// Optional observability hooks (Sentry) for production deployments.
+// Sentry observability hooks used by the API server.
 import * as Sentry from "@sentry/node";
 
 export function initObservability() {

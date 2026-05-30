@@ -1,3 +1,4 @@
+// Marketplace UI building blocks such as cards, status, and timelines.
 import { motion } from "framer-motion";
 import type { SyntheticEvent } from "react";
 import type { BookingStatus, Product, TrackingEvent } from "../api";

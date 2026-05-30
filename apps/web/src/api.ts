@@ -1,3 +1,4 @@
+// Client API wrapper for backend endpoints; no secrets are stored here.
 const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string> }).env;
 export const apiBaseUrl = viteEnv?.VITE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -316,12 +317,10 @@ export type ApiMessage = {
 };
 
 export type AuthResponse = ApiMessage & {
-  token?: string;
   user?: User;
 };
 
 export type CustomerAuthResponse = ApiMessage & {
-  token?: string;
   customer?: CustomerProfile;
 };
 
@@ -445,22 +444,16 @@ export async function getMarketplace() {
   };
 }
 
-export function getAuthenticatedUser(token: string) {
-  return apiRequest<{ user: User }>("/api/auth/me", {
-    headers: authHeaders(token)
-  });
+export function getAuthenticatedUser() {
+  return apiRequest<{ user: User }>("/api/auth/me");
 }
 
-export function getHostDashboard(token: string) {
-  return apiRequest<HostDashboard>("/api/host-dashboard", {
-    headers: authHeaders(token)
-  });
+export function getHostDashboard() {
+  return apiRequest<HostDashboard>("/api/host-dashboard");
 }
 
-export function getAdminDashboard(token: string) {
-  return apiRequest<AdminDashboard>("/api/admin/dashboard", {
-    headers: authHeaders(token)
-  });
+export function getAdminDashboard() {
+  return apiRequest<AdminDashboard>("/api/admin/dashboard");
 }
 
 export function getAdvertiserApprovalStatus(email: string) {
@@ -485,6 +478,12 @@ export function loginAccount(payload: LoginPayload) {
   });
 }
 
+export function logoutUserSession() {
+  return apiRequest<ApiMessage>("/api/auth/logout", {
+    method: "POST"
+  });
+}
+
 export function registerCustomerAccount(payload: RegisterCustomerPayload) {
   return apiRequest<CustomerAuthResponse>("/api/customers/register", {
     method: "POST",
@@ -501,159 +500,133 @@ export function loginCustomerAccount(payload: LoginPayload) {
   });
 }
 
-export function getCustomerProfile(token: string) {
-  return apiRequest<{ customer: CustomerProfile }>("/api/customers/me", {
-    headers: authHeaders(token)
+export function logoutCustomerSession() {
+  return apiRequest<ApiMessage>("/api/customers/logout", {
+    method: "POST"
   });
 }
 
-export function getCustomerDashboard(token: string) {
-  return apiRequest<CustomerDashboard>("/api/customers/dashboard", {
-    headers: authHeaders(token)
-  });
+export function getCustomerProfile() {
+  return apiRequest<{ customer: CustomerProfile }>("/api/customers/me");
 }
 
-export function createBooking(token: string, payload: BookingPayload) {
+export function getCustomerDashboard() {
+  return apiRequest<CustomerDashboard>("/api/customers/dashboard");
+}
+
+export function createBooking(payload: BookingPayload) {
   return apiRequest<ApiMessage & { booking?: Booking }>("/api/bookings", {
     method: "POST",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload)
   });
 }
 
-export function saveReview(token: string, bookingId: string, payload: ReviewPayload) {
+export function saveReview(bookingId: string, payload: ReviewPayload) {
   return apiRequest<ApiMessage & { review?: Review }>(`/api/bookings/${bookingId}/review`, {
     method: "POST",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload)
   });
 }
 
-export function createAdvertiserProduct(
-  token: string,
-  payload: AdvertiserProductPayload
-) {
+export function createAdvertiserProduct(payload: AdvertiserProductPayload) {
   return apiRequest<ApiMessage & { product?: Product }>("/api/advertiser/products", {
     method: "POST",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload)
   });
 }
 
-export function createAvailabilityBlock(
-  token: string,
-  payload: AvailabilityBlockPayload
-) {
+export function createAvailabilityBlock(payload: AvailabilityBlockPayload) {
   return apiRequest<ApiMessage & { block?: AvailabilityBlock }>("/api/advertiser/availability", {
     method: "POST",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload)
   });
 }
 
-export function createPricingRule(token: string, payload: PricingRulePayload) {
+export function createPricingRule(payload: PricingRulePayload) {
   return apiRequest<ApiMessage & { rule?: PricingRule }>("/api/advertiser/pricing", {
     method: "POST",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload)
   });
 }
 
 export function updateAdvertiserAccessStatus(
-  token: string,
   userId: string,
   accessStatus: User["accessStatus"]
 ) {
   return apiRequest<ApiMessage & { user?: User }>(`/api/admin/users/${userId}/access`, {
     method: "PATCH",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify({ accessStatus })
   });
 }
 
-export function updateProductStatus(
-  token: string,
-  productId: string,
-  status: ListingStatus
-) {
+export function updateProductStatus(productId: string, status: ListingStatus) {
   return apiRequest<ApiMessage & { product?: Product }>(`/api/admin/products/${productId}/status`, {
     method: "PATCH",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify({ status })
   });
 }
 
-export function updateProductQaStatus(
-  token: string,
-  productId: string,
-  qaStatus: QaStatus,
-  qaNotes: string
-) {
+export function updateProductQaStatus(productId: string, qaStatus: QaStatus, qaNotes: string) {
   return apiRequest<ApiMessage & { product?: Product }>(`/api/admin/products/${productId}/qa`, {
     method: "PATCH",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify({ qaStatus, qaNotes })
   });
 }
 
-export function createContentBlock(token: string, payload: ContentBlockPayload) {
+export function createContentBlock(payload: ContentBlockPayload) {
   return apiRequest<ApiMessage & { block?: ContentBlock }>("/api/admin/content", {
     method: "POST",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload)
   });
 }
 
-export function updateContentBlock(
-  token: string,
-  contentId: string,
-  payload: ContentBlockUpdatePayload
-) {
+export function updateContentBlock(contentId: string, payload: ContentBlockUpdatePayload) {
   return apiRequest<ApiMessage & { block?: ContentBlock }>(`/api/admin/content/${contentId}`, {
     method: "PATCH",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload)
   });
 }
 
-export function createPromoCampaign(token: string, payload: PromoCampaignPayload) {
+export function createPromoCampaign(payload: PromoCampaignPayload) {
   return apiRequest<ApiMessage & { campaign?: PromoCampaign }>("/api/admin/promos", {
     method: "POST",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload)
   });
 }
 
-export function createReferralCode(token: string, payload: ReferralCodePayload) {
+export function createReferralCode(payload: ReferralCodePayload) {
   return apiRequest<ApiMessage & { referral?: ReferralCode }>("/api/admin/referrals", {
     method: "POST",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload)
   });
 }
 
-export function updateBookingStatus(
-  token: string,
-  bookingId: string,
-  status: BookingStatus
-) {
+export function updateBookingStatus(bookingId: string, status: BookingStatus) {
   return apiRequest<ApiMessage & { booking?: Booking }>(`/api/admin/bookings/${bookingId}/status`, {
     method: "PATCH",
-    headers: authHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify({ status })
   });
 }
 
-export function scheduleReturnPickup(
-  token: string,
-  bookingId: string,
-  returnScheduledAt?: string
-) {
+export function scheduleReturnPickup(bookingId: string, returnScheduledAt?: string) {
   return apiRequest<ApiMessage & { booking?: Booking }>(
     `/api/admin/bookings/${bookingId}/return-schedule`,
     {
       method: "PATCH",
-      headers: authHeaders(token),
+      headers: jsonHeaders(),
       body: JSON.stringify({ returnScheduledAt })
     }
   );
@@ -669,7 +642,10 @@ export function recordAnalyticsEvent(payload: AnalyticsEventPayload) {
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   try {
-    const response = await fetch(`${apiBaseUrl}${path}`, options);
+    const response = await fetch(`${apiBaseUrl}${path}`, {
+      credentials: "include",
+      ...options
+    });
     const data = (await response.json().catch(() => ({}))) as T;
 
     return {
@@ -689,12 +665,5 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<A
 function jsonHeaders() {
   return {
     "Content-Type": "application/json"
-  };
-}
-
-function authHeaders(token: string) {
-  return {
-    ...jsonHeaders(),
-    Authorization: `Bearer ${token}`
   };
 }

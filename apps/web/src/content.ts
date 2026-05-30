@@ -1,3 +1,4 @@
+// Static marketing copy and media references used across pages.
 export type MediaCard = { title: string; note: string; image: string; accent?: string };
 export type Testimonial = { quote: string; name: string; role: string };
 export type VideoFeature = { title: string; note: string; poster: string; video: string };

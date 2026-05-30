@@ -1,3 +1,4 @@
+// Async handler wrapper to surface route errors to Express.
 import type { NextFunction, Request, Response } from "express";
 
 export function asyncHandler(

@@ -1,3 +1,4 @@
+// Custom select dropdown with search and motion.
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 

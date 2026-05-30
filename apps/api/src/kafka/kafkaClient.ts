@@ -1,4 +1,4 @@
-// Kafka client helpers for producing and consuming events.
+// Kafka producer/consumer setup used by server and worker.
 import { Kafka, logLevel, type Consumer, type Producer } from "kafkajs";
 
 const brokerList = process.env.KAFKA_BROKERS?.split(",")

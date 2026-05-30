@@ -16,6 +16,7 @@ The API serves marketplace data, authentication, and booking workflows for custo
 
 ## Environment
 - apps/api/.env: DATABASE_URL and admin seed credentials.
+- Optional: set REDIS_URL to enable shared rate limiting across API instances.
 
 ## Kafka
 - Set KAFKA_BROKERS (e.g. localhost:9092) to enable event publishing.

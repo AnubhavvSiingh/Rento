@@ -1,3 +1,4 @@
+// Demo product seed data for local development and previews.
 export const products: Product[] = [
   {
     id: "prd-001",

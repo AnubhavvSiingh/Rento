@@ -1,4 +1,4 @@
-// Kafka worker to handle async marketplace events.
+// Kafka worker for async events and audit logs (run via dev:worker).
 import { config as loadEnv } from "dotenv";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

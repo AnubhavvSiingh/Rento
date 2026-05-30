@@ -1,3 +1,4 @@
+// Request typing for authenticated users and customers.
 import type { AccessStatus, BookingStatus, UserRole } from "@prisma/client";
 import type { Request } from "express";
 

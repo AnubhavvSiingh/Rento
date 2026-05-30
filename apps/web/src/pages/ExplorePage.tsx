@@ -1,3 +1,4 @@
+// Explore page for browsing and filtering approved listings.
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import type { Overview, Product } from "../api";

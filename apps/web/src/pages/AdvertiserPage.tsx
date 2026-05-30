@@ -1,3 +1,4 @@
+// Advertiser onboarding and host dashboard UI.
 import type { FormEvent } from "react";
 import type { Booking, HostDashboard, User } from "../api";
 import { advertiserCategories, advertiserVisuals } from "../content";

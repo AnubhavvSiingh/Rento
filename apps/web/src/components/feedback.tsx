@@ -1,3 +1,4 @@
+// Feedback UI components used for alerts and loading buttons.
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 export type FeedbackTone = "info" | "success" | "error" | "loading";

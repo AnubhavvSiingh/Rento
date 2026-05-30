@@ -1,3 +1,4 @@
+// Aggregates service checks for status endpoints and HTML status page.
 import {
   checkHealth,
   getAdminDashboard,

@@ -1,3 +1,4 @@
+// Request logging middleware for basic API timing.
 import type { NextFunction, Request, Response } from "express";
 
 export function requestLogger(req: Request, res: Response, next: NextFunction) {

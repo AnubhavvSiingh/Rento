@@ -1,3 +1,4 @@
+// Session and tracking token helpers used by auth and bookings.
 import crypto from "node:crypto";
 
 export function createSessionToken() {

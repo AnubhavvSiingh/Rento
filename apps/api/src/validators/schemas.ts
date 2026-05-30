@@ -1,3 +1,4 @@
+// Request payload validation and normalization helpers.
 import { ApiError } from "../middleware/errorHandler.js";
 
 const categories = ["Furniture", "Appliances", "Fashion", "Ceremony", "Electronics"] as const;

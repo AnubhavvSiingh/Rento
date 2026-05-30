@@ -1,4 +1,4 @@
-// Basic request guard to block common injection patterns before hitting routes.
+// Basic WAF-style request payload guard used by the API app.
 import type { NextFunction, Request, Response } from "express";
 
 const blockedPatterns = [

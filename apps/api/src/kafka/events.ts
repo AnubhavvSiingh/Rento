@@ -1,4 +1,4 @@
-// Shared Kafka event envelope helpers.
+// Event envelope builder for Kafka message payloads.
 import crypto from "node:crypto";
 
 export type EventEnvelope<T> = {

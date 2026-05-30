@@ -1,3 +1,4 @@
+// API error types and centralized error responses.
 import type { NextFunction, Request, Response } from "express";
 import { captureError } from "../utils/observability.js";
 
