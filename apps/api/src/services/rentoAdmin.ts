@@ -2,6 +2,7 @@
 import type { AccessStatus, ContentType, DiscountType, ListingStatus, QaStatus } from "@prisma/client";
 import { prisma } from "../database/prisma.js";
 import { buildEvent } from "../kafka/events.js";
+import { indexMarketplaceProduct } from "../search/elasticsearch.js";
 import {
   bookingIncludes,
   buildAnalyticsSummary,
@@ -124,6 +125,8 @@ export async function updateProductStatus(
     })
   );
 
+  void indexMarketplaceProduct(product);
+
   return mapProduct(product);
 }
 
@@ -157,6 +160,8 @@ export async function updateProductQaStatus(
       qaNotes: input.qaNotes
     })
   );
+
+  void indexMarketplaceProduct(product);
 
   return mapProduct(product);
 }

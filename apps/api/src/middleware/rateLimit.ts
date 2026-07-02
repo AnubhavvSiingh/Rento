@@ -101,7 +101,7 @@ async function applyRedisLimit(
   windowMs: number
 ) {
   const redisKey = `${getRateLimitPrefix()}:${scopedKey}`;
-  const results = await redis.multi().incr(redisKey).pttl(redisKey).exec();
+  const results = await redis.multi().incr(redisKey).pTTL(redisKey).exec();
 
   if (!results) {
     throw new Error("Redis rate limit transaction failed.");
@@ -111,7 +111,7 @@ async function applyRedisLimit(
   let ttl = Number(results[1] ?? -1);
 
   if (!Number.isFinite(ttl) || ttl < 0) {
-    await redis.pexpire(redisKey, windowMs);
+    await redis.pExpire(redisKey, windowMs);
     ttl = windowMs;
   }
 

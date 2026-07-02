@@ -1,6 +1,7 @@
 // Marketplace queries for health, overview stats, and public catalog.
 import { prisma } from "../database/prisma.js";
 import { mapPublicProduct, productIncludes } from "./rentoHelpers.js";
+import { searchMarketplaceProducts } from "../search/elasticsearch.js";
 
 export async function checkHealth() {
   await prisma.$queryRaw`SELECT 1`;
@@ -60,4 +61,14 @@ export async function listProducts() {
   });
 
   return products.map(mapPublicProduct);
+}
+
+export async function searchMarketplaceCatalog(filters: {
+  query?: string;
+  category?: string;
+  city?: string;
+  maxPrice?: number;
+  sort?: "recommended" | "price-low" | "price-high";
+}) {
+  return searchMarketplaceProducts({ ...filters, approvedOnly: true });
 }

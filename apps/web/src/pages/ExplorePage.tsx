@@ -1,7 +1,8 @@
 // Explore page for browsing and filtering approved listings.
 import { motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Overview, Product } from "../api";
+import { searchMarketplaceProducts } from "../api";
 import {
   advertiserCategories,
   categoryImages,
@@ -35,6 +36,7 @@ export function ExplorePage({
   const [city, setCity] = useState("All");
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort] = useState("recommended");
+  const [remoteProducts, setRemoteProducts] = useState<Product[] | null>(null);
   const showSkeletons = isLoading;
   const cities = useMemo(
     () => Array.from(new Set(products.map((product) => product.city))).sort(),
@@ -116,6 +118,37 @@ export function ExplorePage({
     });
   }, [category, city, maxPrice, products, search, sort]);
 
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void searchMarketplaceProducts({
+        q: search,
+        category,
+        city,
+        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        sort: sort as "recommended" | "price-low" | "price-high"
+      })
+        .then((response) => {
+          if (response.ok) {
+            setRemoteProducts(response.data);
+            return;
+          }
+
+          setRemoteProducts(null);
+        })
+        .catch(() => {
+          setRemoteProducts(null);
+        });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [category, city, isLoading, maxPrice, search, sort]);
+
+  const displayedProducts = remoteProducts ?? filteredProducts;
+
   return (
     <main className="page-shell">
       <section className="section-header">
@@ -130,7 +163,7 @@ export function ExplorePage({
         <div className="status-banner compact">
           {showSkeletons
             ? "Loading approved listings..."
-            : `${filteredProducts.length} approved listings ready to rent`}
+            : `${displayedProducts.length} approved listings ready to rent`}
         </div>
       </section>
 
@@ -235,7 +268,7 @@ export function ExplorePage({
           ? Array.from({ length: 6 }).map((_, index) => (
               <ProductSkeletonCard key={`skeleton-product-${index}`} />
             ))
-          : filteredProducts.map((product) => (
+          : displayedProducts.map((product) => (
               <motion.article
                 key={product.id}
                 className="card product-card"

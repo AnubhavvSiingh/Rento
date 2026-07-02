@@ -444,6 +444,41 @@ export async function getMarketplace() {
   };
 }
 
+export type MarketplaceSearchParams = {
+  q?: string;
+  category?: string;
+  city?: string;
+  maxPrice?: number;
+  sort?: "recommended" | "price-low" | "price-high";
+};
+
+export async function searchMarketplaceProducts(params: MarketplaceSearchParams) {
+  const searchParams = new URLSearchParams();
+
+  if (params.q?.trim()) {
+    searchParams.set("q", params.q.trim());
+  }
+
+  if (params.category && params.category !== "All") {
+    searchParams.set("category", params.category);
+  }
+
+  if (params.city && params.city !== "All") {
+    searchParams.set("city", params.city);
+  }
+
+  if (typeof params.maxPrice === "number" && Number.isFinite(params.maxPrice)) {
+    searchParams.set("maxPrice", String(params.maxPrice));
+  }
+
+  if (params.sort && params.sort !== "recommended") {
+    searchParams.set("sort", params.sort);
+  }
+
+  const queryString = searchParams.toString();
+  return apiRequest<Product[]>(`/api/products/search${queryString ? `?${queryString}` : ""}`);
+}
+
 export function getAuthenticatedUser() {
   return apiRequest<{ user: User }>("/api/auth/me");
 }

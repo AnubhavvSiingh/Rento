@@ -2,9 +2,14 @@
 import { createApp } from "./app.js";
 import { disconnectDatabase } from "./database/prisma.js";
 import { startKafkaProducer, stopKafkaProducer } from "./kafka/kafkaClient.js";
+import { syncMarketplaceSearchIndex } from "./search/elasticsearch.js";
 
 void startKafkaProducer().catch((error) => {
   console.warn("Kafka producer not started:", error);
+});
+
+void syncMarketplaceSearchIndex().catch((error) => {
+  console.warn("Elasticsearch index sync not started:", error);
 });
 
 const app = createApp();

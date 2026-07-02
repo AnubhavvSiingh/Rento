@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { prisma } from "../database/prisma.js";
 import { ApiError } from "../middleware/errorHandler.js";
 import { buildEvent } from "../kafka/events.js";
+import { indexMarketplaceProduct } from "../search/elasticsearch.js";
 import {
   assessPhotoQuality,
   bookingIncludes,
@@ -176,6 +177,8 @@ export async function createAdvertiserProduct(
       imageCount: product.images.length
     })
   );
+
+  void indexMarketplaceProduct(product);
 
   return mapProduct(product);
 }

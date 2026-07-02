@@ -48,7 +48,7 @@ const corsHeaders = {
 };
 
 async function mockApi(page: Page) {
-  await page.route("**/api/**", async (route) => {
+  await page.route(/\/api\//, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
 
@@ -112,7 +112,7 @@ test("explore page shows approved listing count", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Explore" }).click();
+  await page.getByRole("button", { name: "Explore", exact: true }).click();
   await expect(
     page.getByRole("heading", {
       name: /Explore rentals that feel curated, useful, and ready for real life\./i
